@@ -52,4 +52,12 @@ SUCH DAMAGE.
 		</developer>
 	</developers>
 
+	<url>https://github.com/zregvart/xvfb-jenkins-plugin</url>
+
+	<scm>
+		<connection>scm:git:ssh://github.com/zregvart/xvfb-jenkins-plugin.git</connection>
+		<developerConnection>scm:git:ssh://git@github.com/zregvart/xvfb-jenkins-plugin.git</developerConnection>
+		<url>https://zregvart@github.com/zregvart/xvfb-jenkins-plugin.git</url>
+	</scm>
+
 </project>
