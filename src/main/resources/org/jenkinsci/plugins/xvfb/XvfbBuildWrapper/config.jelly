@@ -1,0 +1,59 @@
+<!-- 
+Copyright (c) 2012 <whome?> All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+SUCH DAMAGE.
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define"
+	xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+
+	<f:advanced>
+		<j:if test="${!empty(descriptor.installations)}">
+			<f:entry title="${%Xvfb installation}" field="installationName">
+				<select name="xvfb.installationName" class="setting-input">
+					<j:forEach var="installation" items="${descriptor.installations}">
+						<f:option selected="${installation.name == instance.installationName}"
+							value="${installation.name}">
+							${installation.name}
+						</f:option>
+					</j:forEach>
+				</select>
+			</f:entry>
+		</j:if>
+
+		<f:entry title="${%Xvfb specific displayname}" field="displayName">
+			<f:textbox value="${instance.displayName}" />
+		</f:entry>
+
+		<f:entry title="${%Timeout in seconds}" field="timeout">
+			<f:textbox value="${instance.timeout}" />
+		</f:entry>
+
+		<f:entry title="${%Xvfb screen}" field="screen">
+			<f:textbox value="${instance.screen}" />
+		</f:entry>
+
+		<f:entry title="${%Log Xvfb output}" field="debug">
+			<f:checkbox value="${instance.debug}" />
+		</f:entry>
+	</f:advanced>
+
+</j:jelly>
