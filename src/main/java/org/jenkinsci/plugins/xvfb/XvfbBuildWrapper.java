@@ -139,7 +139,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
     @Override
     public Launcher decorateLauncher(final AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException, RunnerAbortedException {
         if (!launcher.isUnix()) {
-            listener.getLogger().print(Messages.XvfbBuildWrapper_NotUnix());
+            listener.getLogger().println(Messages.XvfbBuildWrapper_NotUnix());
         }
 
         if (displayName == null) {
@@ -239,7 +239,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
             @Override
             public boolean tearDown(final AbstractBuild build, final BuildListener listener) throws IOException, InterruptedException {
-                listener.getLogger().print(Messages.XvfbBuildWrapper_Stopping());
+                listener.getLogger().println(Messages.XvfbBuildWrapper_Stopping());
                 process.kill();
                 frameBufferDir.deleteRecursive();
 
