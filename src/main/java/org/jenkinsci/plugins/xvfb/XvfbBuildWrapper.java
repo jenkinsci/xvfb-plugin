@@ -233,6 +233,11 @@ public class XvfbBuildWrapper extends BuildWrapper {
     public Environment setUp(final AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
         return new Environment() {
             @Override
+            public void buildEnvVars(Map<String, String> env) {
+                env.put("DISPLAY", ":" + displayNameUsed);
+            }
+
+            @Override
             public boolean tearDown(final AbstractBuild build, final BuildListener listener) throws IOException, InterruptedException {
                 listener.getLogger().print(Messages.XvfbBuildWrapper_Stopping());
                 process.kill();
