@@ -53,9 +53,6 @@ import org.kohsuke.stapler.StaplerRequest;
 
 public class XvfbBuildWrapper extends BuildWrapper {
 
-    /** default screen configuration for Xvfb, used by default, and if user left screen configuration blank */
-    private static final String DEFAULT_SCREEN = "1024x768x24";
-
     @Extension
     public static class XvfbBuildWrapperDescriptor extends BuildWrapperDescriptor {
 
@@ -96,32 +93,38 @@ public class XvfbBuildWrapper extends BuildWrapper {
         }
     }
 
+    /** default screen configuration for Xvfb, used by default, and if user left screen configuration blank */
+    private static final String DEFAULT_SCREEN = "1024x768x24";
+
     /** Name of the installation used in a configured job. */
-    private final String       installationName;
+    private final String        installationName;
 
     /** X11 DISPLAY name, if NULL chosen by random. */
-    private final Integer      displayName;
+    private final Integer       displayName;
 
     /** Xvfb screen argument, in the form WxHxD (width x height x pixel depth), i.e. 800x600x8. */
-    private String             screen = DEFAULT_SCREEN;
+    private String              screen         = DEFAULT_SCREEN;
 
     /** Should the Xvfb output be displayed in job output. */
-    private boolean            debug  = false;
+    private boolean             debug          = false;
 
     /** Time in milliseconds to wait for Xvfb initialization, by default 0 -- do not wait. */
-    private long               timeout;
+    private final long          timeout;
 
     /** Temporary directory to hold Xvfb session data, will not be persisted. */
-    private transient FilePath frameBufferDir;
+    private transient FilePath  frameBufferDir;
 
     /** Actual display name used, will not be persisted. */
-    private transient int      displayNameUsed;
+    private transient int       displayNameUsed;
 
     /** Handle to the Xvfb process. */
-    private transient Proc     process;
+    private transient Proc      process;
+
+    /** Additional options to be passed to Xvfb */
+    private final String        additionalOptions;
 
     @DataBoundConstructor
-    public XvfbBuildWrapper(final String installationName, final Integer displayName, final String screen, final Boolean debug, int timeout) {
+    public XvfbBuildWrapper(final String installationName, final Integer displayName, final String screen, final Boolean debug, final int timeout, final String additionalOptions) {
         this.installationName = installationName;
         this.displayName = displayName;
 
@@ -134,6 +137,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
         this.debug = Boolean.TRUE.equals(debug);
         this.timeout = timeout * 1000;
+        this.additionalOptions = additionalOptions;
     }
 
     @Override
@@ -170,6 +174,10 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
         cmd.add(":" + displayNameUsed).add("-screen").add("0").add(screen).add("-fbdir").add(frameBufferDir);
 
+        if (additionalOptions != null) {
+            cmd.addTokenized(additionalOptions);
+        }
+
         final ProcStarter procStarter = launcher.launch().cmds(cmd);
 
         listener.getLogger().print(Messages.XvfbBuildWrapper_Starting());
@@ -185,6 +193,10 @@ public class XvfbBuildWrapper extends BuildWrapper {
         Thread.sleep(timeout);
 
         return launcher;
+    }
+
+    public String getAdditionalOptions() {
+        return additionalOptions;
     }
 
     @Override
@@ -220,6 +232,10 @@ public class XvfbBuildWrapper extends BuildWrapper {
         return screen;
     }
 
+    public long getTimeout() {
+        return timeout;
+    }
+
     public boolean isDebug() {
         return debug;
     }
@@ -233,7 +249,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
     public Environment setUp(final AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
         return new Environment() {
             @Override
-            public void buildEnvVars(Map<String, String> env) {
+            public void buildEnvVars(final Map<String, String> env) {
                 env.put("DISPLAY", ":" + displayNameUsed);
             }
 

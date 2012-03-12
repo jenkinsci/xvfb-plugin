@@ -23,37 +23,43 @@ OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 SUCH DAMAGE.
 -->
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define"
-	xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+    xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
 
-	<f:advanced>
-		<j:if test="${!empty(descriptor.installations)}">
-			<f:entry title="${%Xvfb installation}" field="installationName">
-				<select name="xvfb.installationName" class="setting-input">
-					<j:forEach var="installation" items="${descriptor.installations}">
-						<f:option selected="${installation.name == instance.installationName}"
-							value="${installation.name}">
-							${installation.name}
-						</f:option>
-					</j:forEach>
-				</select>
-			</f:entry>
-		</j:if>
+    <f:advanced>
+        <j:if test="${!empty(descriptor.installations)}">
+            <f:entry title="${%Xvfb installation}" field="installationName">
+                <select name="xvfb.installationName" class="setting-input">
+                    <j:forEach var="installation"
+                        items="${descriptor.installations}">
+                        <f:option
+                            selected="${installation.name == instance.installationName}"
+                            value="${installation.name}">
+                            ${installation.name}
+                        </f:option>
+                    </j:forEach>
+                </select>
+            </f:entry>
+        </j:if>
 
-		<f:entry title="${%Xvfb specific displayname}" field="displayName">
-			<f:textbox value="${instance.displayName}" />
-		</f:entry>
+        <f:entry title="${%Xvfb specific displayname}" field="displayName">
+            <f:textbox value="${instance.displayName}" />
+        </f:entry>
 
-		<f:entry title="${%Timeout in seconds}" field="timeout">
-			<f:textbox value="${instance.timeout}" />
-		</f:entry>
+        <f:entry title="${%Timeout in seconds}" field="timeout">
+            <f:textbox value="${instance.timeout}" />
+        </f:entry>
 
-		<f:entry title="${%Xvfb screen}" field="screen">
-			<f:textbox value="${instance.screen}" />
-		</f:entry>
+        <f:entry title="${%Xvfb screen}" field="screen">
+            <f:textbox value="${instance.screen}" />
+        </f:entry>
 
-		<f:entry title="${%Log Xvfb output}" field="debug">
-			<f:checkbox value="${instance.debug}" />
-		</f:entry>
-	</f:advanced>
+        <f:entry title="${%Xvfb additional options}" field="additionalOptions">
+            <f:textbox value="${instance.additionalOptions}" />
+        </f:entry>
+
+        <f:entry title="${%Log Xvfb output}" field="debug">
+            <f:checkbox value="${instance.debug}" />
+        </f:entry>
+    </f:advanced>
 
 </j:jelly>
