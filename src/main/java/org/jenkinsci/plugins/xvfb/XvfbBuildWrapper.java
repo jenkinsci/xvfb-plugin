@@ -141,7 +141,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
     }
 
     @Override
-    public Launcher decorateLauncher(final AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException, RunnerAbortedException {
+    public Launcher decorateLauncher(@SuppressWarnings("rawtypes") final AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException, RunnerAbortedException {
         if (!launcher.isUnix()) {
             listener.getLogger().println(Messages.XvfbBuildWrapper_NotUnix());
         }
@@ -161,6 +161,12 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
         final EnvVars environment = currentComputer.getEnvironment();
         final XvfbInstallation installation = getInstallation(environment, currentNode, listener);
+
+        if (installation == null) {
+            listener.error(Messages.XvfbBuildWrapper_NoInstallationsConfigured());
+
+            return launcher;
+        }
 
         final String path = installation.getHome();
 
@@ -241,12 +247,12 @@ public class XvfbBuildWrapper extends BuildWrapper {
     }
 
     @Override
-    public void makeBuildVariables(final AbstractBuild build, final Map<String, String> variables) {
+    public void makeBuildVariables(@SuppressWarnings("rawtypes") final AbstractBuild build, final Map<String, String> variables) {
         variables.put("DISPLAY", ":" + displayNameUsed);
     }
 
     @Override
-    public Environment setUp(final AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
+    public Environment setUp(@SuppressWarnings("rawtypes") final AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
         return new Environment() {
             @Override
             public void buildEnvVars(final Map<String, String> env) {
@@ -254,7 +260,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
             }
 
             @Override
-            public boolean tearDown(final AbstractBuild build, final BuildListener listener) throws IOException, InterruptedException {
+            public boolean tearDown(@SuppressWarnings("rawtypes") final AbstractBuild build, final BuildListener listener) throws IOException, InterruptedException {
                 listener.getLogger().println(Messages.XvfbBuildWrapper_Stopping());
                 process.kill();
                 frameBufferDir.deleteRecursive();
