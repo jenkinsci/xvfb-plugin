@@ -53,6 +53,8 @@ import org.kohsuke.stapler.StaplerRequest;
 
 public class XvfbBuildWrapper extends BuildWrapper {
 
+    private static final int MILLIS_IN_SECOND = 1000;
+
     @Extension
     public static class XvfbBuildWrapperDescriptor extends BuildWrapperDescriptor {
 
@@ -136,7 +138,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
         }
 
         this.debug = Boolean.TRUE.equals(debug);
-        this.timeout = timeout * 1000;
+        this.timeout = timeout;
         this.additionalOptions = additionalOptions;
     }
 
@@ -196,7 +198,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
         process = procStarter.start();
 
-        Thread.sleep(timeout);
+        Thread.sleep(timeout * MILLIS_IN_SECOND);
 
         return launcher;
     }
