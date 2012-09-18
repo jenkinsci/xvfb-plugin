@@ -36,8 +36,8 @@ import hudson.model.TaskListener;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.Computer;
+import hudson.model.Executor;
 import hudson.model.Node;
-import hudson.model.Run.RunnerAbortedException;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.tools.ToolInstallation;
@@ -52,8 +52,6 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 
 public class XvfbBuildWrapper extends BuildWrapper {
-
-    private static final int MILLIS_IN_SECOND = 1000;
 
     @Extension
     public static class XvfbBuildWrapperDescriptor extends BuildWrapperDescriptor {
@@ -95,8 +93,10 @@ public class XvfbBuildWrapper extends BuildWrapper {
         }
     }
 
+    private static final int    MILLIS_IN_SECOND = 1000;
+
     /** default screen configuration for Xvfb, used by default, and if user left screen configuration blank */
-    private static final String DEFAULT_SCREEN = "1024x768x24";
+    private static final String DEFAULT_SCREEN   = "1024x768x24";
 
     /** Name of the installation used in a configured job. */
     private final String        installationName;
@@ -105,22 +105,13 @@ public class XvfbBuildWrapper extends BuildWrapper {
     private final Integer       displayName;
 
     /** Xvfb screen argument, in the form WxHxD (width x height x pixel depth), i.e. 800x600x8. */
-    private String              screen         = DEFAULT_SCREEN;
+    private String              screen           = DEFAULT_SCREEN;
 
     /** Should the Xvfb output be displayed in job output. */
-    private boolean             debug          = false;
+    private boolean             debug            = false;
 
     /** Time in milliseconds to wait for Xvfb initialization, by default 0 -- do not wait. */
     private final long          timeout;
-
-    /** Temporary directory to hold Xvfb session data, will not be persisted. */
-    private transient FilePath  frameBufferDir;
-
-    /** Actual display name used, will not be persisted. */
-    private transient int       displayNameUsed;
-
-    /** Handle to the Xvfb process. */
-    private transient Proc      process;
 
     /** Additional options to be passed to Xvfb */
     private final String        additionalOptions;
@@ -140,67 +131,6 @@ public class XvfbBuildWrapper extends BuildWrapper {
         this.debug = Boolean.TRUE.equals(debug);
         this.timeout = timeout;
         this.additionalOptions = additionalOptions;
-    }
-
-    @Override
-    public Launcher decorateLauncher(@SuppressWarnings("rawtypes") final AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException, RunnerAbortedException {
-        if (!launcher.isUnix()) {
-            listener.getLogger().println(Messages.XvfbBuildWrapper_NotUnix());
-        }
-
-        if (displayName == null) {
-            displayNameUsed = (int) (Math.random() * 100);
-        }
-        else {
-            displayNameUsed = displayName;
-        }
-
-        final Computer currentComputer = Computer.currentComputer();
-        final Node currentNode = currentComputer.getNode();
-        final FilePath rootPath = currentNode.getRootPath();
-
-        frameBufferDir = rootPath.createTempDir(build.getId(), "xvfb");
-
-        final EnvVars environment = currentComputer.getEnvironment();
-        final XvfbInstallation installation = getInstallation(environment, currentNode, listener);
-
-        if (installation == null) {
-            listener.error(Messages.XvfbBuildWrapper_NoInstallationsConfigured());
-
-            return launcher;
-        }
-
-        final String path = installation.getHome();
-
-        final ArgumentListBuilder cmd;
-        if ("".equals(path)) {
-            cmd = new ArgumentListBuilder("Xvfb");
-        }
-        else {
-            cmd = new ArgumentListBuilder(path + "/Xvfb");
-        }
-
-        cmd.add(":" + displayNameUsed).add("-screen").add("0").add(screen).add("-fbdir").add(frameBufferDir);
-
-        if (additionalOptions != null) {
-            cmd.addTokenized(additionalOptions);
-        }
-
-        final ProcStarter procStarter = launcher.launch().cmds(cmd);
-
-        listener.getLogger().print(Messages.XvfbBuildWrapper_Starting());
-        if (debug) {
-            procStarter.stdout(listener).stderr(listener.getLogger());
-        }
-        else {
-            procStarter.stdout(TaskListener.NULL);
-        }
-
-        process = procStarter.start();
-
-        Thread.sleep(timeout * MILLIS_IN_SECOND);
-
-        return launcher;
     }
 
     public String getAdditionalOptions() {
@@ -248,13 +178,93 @@ public class XvfbBuildWrapper extends BuildWrapper {
         return debug;
     }
 
+    private XvfbEnvironment launchXvfb(@SuppressWarnings("rawtypes") final AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
+        int displayNameUsed;
+
+        if (displayName == null) {
+            final Executor executor = build.getExecutor();
+            displayNameUsed = executor.getNumber();
+        }
+        else {
+            displayNameUsed = displayName;
+        }
+
+        final Computer currentComputer = Computer.currentComputer();
+        final Node currentNode = currentComputer.getNode();
+        final FilePath rootPath = currentNode.getRootPath();
+
+        final FilePath frameBufferDir = rootPath.createTempDir(build.getId(), "xvfb");
+
+        final EnvVars environment = currentComputer.getEnvironment();
+        final XvfbInstallation installation = getInstallation(environment, currentNode, listener);
+
+        if (installation == null) {
+            listener.error(Messages.XvfbBuildWrapper_NoInstallationsConfigured());
+
+            return null;
+        }
+
+        final String path = installation.getHome();
+
+        final ArgumentListBuilder cmd;
+        if ("".equals(path)) {
+            cmd = new ArgumentListBuilder("Xvfb");
+        }
+        else {
+            cmd = new ArgumentListBuilder(path + "/Xvfb");
+        }
+
+        cmd.add(":" + displayNameUsed).add("-screen").add("0").add(screen).add("-fbdir").add(frameBufferDir);
+
+        if (additionalOptions != null) {
+            cmd.addTokenized(additionalOptions);
+        }
+
+        final ProcStarter procStarter = launcher.launch().cmds(cmd);
+
+        listener.getLogger().print(Messages.XvfbBuildWrapper_Starting());
+        if (debug) {
+            procStarter.stdout(listener).stderr(listener.getLogger());
+        }
+        else {
+            procStarter.stdout(TaskListener.NULL);
+        }
+
+        final Proc process = procStarter.start();
+
+        Thread.sleep(timeout * MILLIS_IN_SECOND);
+
+        return new XvfbEnvironment(frameBufferDir, displayNameUsed, process);
+    }
+
     @Override
     public void makeBuildVariables(@SuppressWarnings("rawtypes") final AbstractBuild build, final Map<String, String> variables) {
+        final XvfbEnvironment xvfbEnvironment = build.getAction(XvfbEnvironment.class);
+
+        final int displayNameUsed = xvfbEnvironment.getDisplayNameUsed();
+
         variables.put("DISPLAY", ":" + displayNameUsed);
     }
 
     @Override
     public Environment setUp(@SuppressWarnings("rawtypes") final AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
+        if (!launcher.isUnix()) {
+            listener.getLogger().println(Messages.XvfbBuildWrapper_NotUnix());
+
+            // we'll abort
+            return null;
+        }
+
+        final XvfbEnvironment xvfbEnvironment = launchXvfb(build, launcher, listener);
+
+        build.addAction(xvfbEnvironment);
+
+        final int displayNameUsed = xvfbEnvironment.getDisplayNameUsed();
+
+        final FilePath frameBufferDir = xvfbEnvironment.getFrameBufferDir();
+
+        final Proc process = xvfbEnvironment.getProcess();
+
         return new Environment() {
             @Override
             public void buildEnvVars(final Map<String, String> env) {
