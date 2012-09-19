@@ -251,8 +251,9 @@ public class XvfbBuildWrapper extends BuildWrapper {
         if (!launcher.isUnix()) {
             listener.getLogger().println(Messages.XvfbBuildWrapper_NotUnix());
 
-            // we'll abort
-            return null;
+            // we'll return empty environment
+            return new Environment() {
+            };
         }
 
         final XvfbEnvironment xvfbEnvironment = launchXvfb(build, launcher, listener);
