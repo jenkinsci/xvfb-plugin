@@ -241,9 +241,11 @@ public class XvfbBuildWrapper extends BuildWrapper {
     public void makeBuildVariables(@SuppressWarnings("rawtypes") final AbstractBuild build, final Map<String, String> variables) {
         final XvfbEnvironment xvfbEnvironment = build.getAction(XvfbEnvironment.class);
 
-        final int displayNameUsed = xvfbEnvironment.getDisplayNameUsed();
+        if (xvfbEnvironment != null) {
+            final int displayNameUsed = xvfbEnvironment.getDisplayNameUsed();
 
-        variables.put("DISPLAY", ":" + displayNameUsed);
+            variables.put("DISPLAY", ":" + displayNameUsed);
+        }
     }
 
     @Override
