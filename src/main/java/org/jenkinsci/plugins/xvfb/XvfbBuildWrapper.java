@@ -183,7 +183,10 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
         if (displayName == null) {
             final Executor executor = build.getExecutor();
-            displayNameUsed = executor.getNumber();
+            displayNameUsed = executor.getNumber() + 1;
+            if(displayNameUsed>99 || displayNameUsed<=0) {
+            	displayNameUsed = 1 + (int) (Math.random() * 99);
+            }
         }
         else {
             displayNameUsed = displayName;
