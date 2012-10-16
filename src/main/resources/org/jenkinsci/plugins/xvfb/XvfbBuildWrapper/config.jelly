@@ -53,6 +53,10 @@ SUCH DAMAGE.
             <f:textbox value="${instance.screen}" />
         </f:entry>
 
+        <f:entry title="${%Xvfb display name offset}" field="displayNameOffset">
+            <f:textbox value="${instance.displayNameOffset}" />
+        </f:entry>
+
         <f:entry title="${%Xvfb additional options}" field="additionalOptions">
             <f:textbox value="${instance.additionalOptions}" />
         </f:entry>

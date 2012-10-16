@@ -93,10 +93,10 @@ public class XvfbBuildWrapper extends BuildWrapper {
         }
     }
 
-    private static final int    MILLIS_IN_SECOND = 1000;
+    private static final int    MILLIS_IN_SECOND  = 1000;
 
     /** default screen configuration for Xvfb, used by default, and if user left screen configuration blank */
-    private static final String DEFAULT_SCREEN   = "1024x768x24";
+    private static final String DEFAULT_SCREEN    = "1024x768x24";
 
     /** Name of the installation used in a configured job. */
     private final String        installationName;
@@ -105,19 +105,22 @@ public class XvfbBuildWrapper extends BuildWrapper {
     private final Integer       displayName;
 
     /** Xvfb screen argument, in the form WxHxD (width x height x pixel depth), i.e. 800x600x8. */
-    private String              screen           = DEFAULT_SCREEN;
+    private String              screen            = DEFAULT_SCREEN;
 
     /** Should the Xvfb output be displayed in job output. */
-    private boolean             debug            = false;
+    private boolean             debug             = false;
 
     /** Time in milliseconds to wait for Xvfb initialization, by default 0 -- do not wait. */
     private final long          timeout;
+
+    /** Offset for display names, default is 1. Display names are taken from build executor's number, i.e. if the build is performed by executor 4, and offset is 100, display name will be 104. */
+    private int                 displayNameOffset = 1;
 
     /** Additional options to be passed to Xvfb */
     private final String        additionalOptions;
 
     @DataBoundConstructor
-    public XvfbBuildWrapper(final String installationName, final Integer displayName, final String screen, final Boolean debug, final int timeout, final String additionalOptions) {
+    public XvfbBuildWrapper(final String installationName, final Integer displayName, final String screen, final Boolean debug, final int timeout, int displayNameOffset, final String additionalOptions) {
         this.installationName = installationName;
         this.displayName = displayName;
 
@@ -130,6 +133,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
         this.debug = Boolean.TRUE.equals(debug);
         this.timeout = timeout;
+        this.displayNameOffset = displayNameOffset;
         this.additionalOptions = additionalOptions;
     }
 
@@ -183,10 +187,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
         if (displayName == null) {
             final Executor executor = build.getExecutor();
-            displayNameUsed = executor.getNumber() + 1;
-            if(displayNameUsed>99 || displayNameUsed<=0) {
-            	displayNameUsed = 1 + (int) (Math.random() * 99);
-            }
+            displayNameUsed = executor.getNumber() + displayNameOffset;
         }
         else {
             displayNameUsed = displayName;
