@@ -42,6 +42,7 @@ import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.tools.ToolInstallation;
 import hudson.util.ArgumentListBuilder;
+import hudson.util.FormValidation;
 
 import java.io.IOException;
 import java.util.Map;
@@ -49,6 +50,7 @@ import java.util.Map;
 import net.sf.json.JSONObject;
 
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
 public class XvfbBuildWrapper extends BuildWrapper {
@@ -62,6 +64,18 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
         public XvfbBuildWrapperDescriptor() {
             load();
+        }
+
+        public FormValidation doCheckDisplayName(@QueryParameter final String value) throws IOException {
+            return validateOptionalNonNegativeInteger(value);
+        }
+
+        public FormValidation doCheckDisplayNameOffset(@QueryParameter final String value) throws IOException {
+            return validateOptionalPositiveInteger(value);
+        }
+
+        public FormValidation doCheckTimeout(@QueryParameter final String value) throws IOException {
+            return validateOptionalNonNegativeInteger(value);
         }
 
         @Override
@@ -90,6 +104,22 @@ public class XvfbBuildWrapper extends BuildWrapper {
         public void setInstallations(final XvfbInstallation... installations) {
             this.installations = installations;
             save();
+        }
+
+        private FormValidation validateOptionalNonNegativeInteger(final String value) {
+            if (value == null || value.trim().isEmpty()) {
+                return FormValidation.ok();
+            }
+
+            return FormValidation.validateNonNegativeInteger(value);
+        }
+
+        private FormValidation validateOptionalPositiveInteger(final String value) {
+            if (value == null || value.trim().isEmpty()) {
+                return FormValidation.ok();
+            }
+
+            return FormValidation.validatePositiveInteger(value);
         }
     }
 
@@ -120,7 +150,8 @@ public class XvfbBuildWrapper extends BuildWrapper {
     private final String        additionalOptions;
 
     @DataBoundConstructor
-    public XvfbBuildWrapper(final String installationName, final Integer displayName, final String screen, final Boolean debug, final int timeout, int displayNameOffset, final String additionalOptions) {
+    public XvfbBuildWrapper(final String installationName, final Integer displayName, final String screen, final Boolean debug, final int timeout, final int displayNameOffset,
+            final String additionalOptions) {
         this.installationName = installationName;
         this.displayName = displayName;
 
@@ -133,7 +164,12 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
         this.debug = Boolean.TRUE.equals(debug);
         this.timeout = timeout;
-        this.displayNameOffset = displayNameOffset;
+        if (displayNameOffset <= 0) {
+            this.displayNameOffset = 1;
+        }
+        else {
+            this.displayNameOffset = displayNameOffset;
+        }
         this.additionalOptions = additionalOptions;
     }
 
