@@ -186,6 +186,10 @@ public class XvfbBuildWrapper extends BuildWrapper {
         return displayName;
     }
 
+    public int getDisplayNameOffset() {
+        return displayNameOffset;
+    }
+
     public XvfbInstallation getInstallation(final EnvVars env, final Node node, final BuildListener listener) {
         for (final XvfbInstallation installation : getDescriptor().getInstallations()) {
             if (installationName != null && installationName.equals(installation.getName())) {
@@ -241,7 +245,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
         if (installation == null) {
             listener.error(Messages.XvfbBuildWrapper_NoInstallationsConfigured());
 
-            return null;
+            throw new InterruptedException();
         }
 
         final String path = installation.getHome();
