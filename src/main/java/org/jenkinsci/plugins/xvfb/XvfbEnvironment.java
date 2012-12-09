@@ -14,10 +14,14 @@ public class XvfbEnvironment extends InvisibleAction {
     /** Handle to the Xvfb process. */
     private final transient Proc     process;
 
-    public XvfbEnvironment(final FilePath frameBufferDir, final int displayNameUsed, final Proc process) {
+    /** The shutdownWithBuild indicator from the job configuration. */
+    private final transient boolean  shutdownWithBuild;
+
+    public XvfbEnvironment(final FilePath frameBufferDir, final int displayNameUsed, final Proc process, boolean shutdownWithBuild) {
         this.frameBufferDir = frameBufferDir;
         this.displayNameUsed = displayNameUsed;
         this.process = process;
+        this.shutdownWithBuild = shutdownWithBuild;
     }
 
     public int getDisplayNameUsed() {
@@ -30,5 +34,9 @@ public class XvfbEnvironment extends InvisibleAction {
 
     public Proc getProcess() {
         return process;
+    }
+
+    public boolean isShutdownWithBuild() {
+        return shutdownWithBuild;
     }
 }

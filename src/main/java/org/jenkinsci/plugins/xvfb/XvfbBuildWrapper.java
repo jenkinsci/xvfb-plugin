@@ -38,6 +38,8 @@ import hudson.model.AbstractProject;
 import hudson.model.Computer;
 import hudson.model.Executor;
 import hudson.model.Node;
+import hudson.model.Run;
+import hudson.model.listeners.RunListener;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.tools.ToolInstallation;
@@ -54,6 +56,25 @@ import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
 public class XvfbBuildWrapper extends BuildWrapper {
+
+    @SuppressWarnings("rawtypes")
+    @Extension
+    public static final RunListener<Run> xvfbShutdownListener = new RunListener<Run>() {
+                                                                  @Override
+                                                                  public void onCompleted(Run r, TaskListener listener) {
+                                                                      XvfbEnvironment xvfbEnvironment = r.getAction(XvfbEnvironment.class);
+
+                                                                      if (xvfbEnvironment != null && xvfbEnvironment.isShutdownWithBuild()) {
+                                                                          try {
+                                                                              shutdownAndCleanup(xvfbEnvironment, listener);
+                                                                          } catch (IOException e) {
+                                                                              throw new RuntimeException(e);
+                                                                          } catch (InterruptedException e) {
+                                                                              throw new RuntimeException(e);
+                                                                          }
+                                                                      }
+                                                                  }
+                                                              };
 
     @Extension
     public static class XvfbBuildWrapperDescriptor extends BuildWrapperDescriptor {
@@ -149,9 +170,12 @@ public class XvfbBuildWrapper extends BuildWrapper {
     /** Additional options to be passed to Xvfb */
     private final String        additionalOptions;
 
+    /** Should the Xvfb display be around for post build actions, i.e. should it terminate with the whole build */
+    private boolean             shutdownWithBuild = false;
+
     @DataBoundConstructor
     public XvfbBuildWrapper(final String installationName, final Integer displayName, final String screen, final Boolean debug, final int timeout, final int displayNameOffset,
-            final String additionalOptions) {
+            final String additionalOptions, Boolean shutdownWithBuild) {
         this.installationName = installationName;
         this.displayName = displayName;
 
@@ -171,6 +195,8 @@ public class XvfbBuildWrapper extends BuildWrapper {
             this.displayNameOffset = displayNameOffset;
         }
         this.additionalOptions = additionalOptions;
+
+        this.shutdownWithBuild = shutdownWithBuild;
     }
 
     public String getAdditionalOptions() {
@@ -220,6 +246,10 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
     public boolean isDebug() {
         return debug;
+    }
+
+    public boolean isShutdownWithBuild() {
+        return shutdownWithBuild;
     }
 
     private XvfbEnvironment launchXvfb(@SuppressWarnings("rawtypes") final AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
@@ -278,7 +308,9 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
         Thread.sleep(timeout * MILLIS_IN_SECOND);
 
-        return new XvfbEnvironment(frameBufferDir, displayNameUsed, process);
+        final XvfbEnvironment xvfbEnvironment = new XvfbEnvironment(frameBufferDir, displayNameUsed, process, shutdownWithBuild);
+
+        return xvfbEnvironment;
     }
 
     @Override
@@ -290,6 +322,15 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
             variables.put("DISPLAY", ":" + displayNameUsed);
         }
+    }
+
+    private static void shutdownAndCleanup(XvfbEnvironment environment, TaskListener listener) throws IOException, InterruptedException {
+        final FilePath frameBufferDir = environment.getFrameBufferDir();
+        final Proc process = environment.getProcess();
+
+        listener.getLogger().println(Messages.XvfbBuildWrapper_Stopping());
+        process.kill();
+        frameBufferDir.deleteRecursive();
     }
 
     @Override
@@ -308,10 +349,6 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
         final int displayNameUsed = xvfbEnvironment.getDisplayNameUsed();
 
-        final FilePath frameBufferDir = xvfbEnvironment.getFrameBufferDir();
-
-        final Proc process = xvfbEnvironment.getProcess();
-
         return new Environment() {
             @Override
             public void buildEnvVars(final Map<String, String> env) {
@@ -320,9 +357,9 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
             @Override
             public boolean tearDown(@SuppressWarnings("rawtypes") final AbstractBuild build, final BuildListener listener) throws IOException, InterruptedException {
-                listener.getLogger().println(Messages.XvfbBuildWrapper_Stopping());
-                process.kill();
-                frameBufferDir.deleteRecursive();
+                if (!shutdownWithBuild) {
+                    shutdownAndCleanup(xvfbEnvironment, listener);
+                }
 
                 return true;
             }
