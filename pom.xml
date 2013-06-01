@@ -27,7 +27,7 @@ SUCH DAMAGE.
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>1.399</version>
+        <version>1.424.6</version>
     </parent>
 
     <artifactId>xvfb</artifactId>
@@ -63,14 +63,6 @@ SUCH DAMAGE.
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     </properties>
-
-    <!-- will not require Jenkins upgrade, so stick with v1.399, but add jenkins public repository instead -->
-    <repositories>
-        <repository>
-            <id>repo.jenkins-ci.org</id>
-            <url>http://repo.jenkins-ci.org/public/</url>
-        </repository>
-    </repositories>
 
     <pluginRepositories>
         <pluginRepository>
