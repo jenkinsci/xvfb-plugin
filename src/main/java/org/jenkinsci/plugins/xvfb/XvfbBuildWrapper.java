@@ -39,6 +39,7 @@ import hudson.model.Computer;
 import hudson.model.Executor;
 import hudson.model.Node;
 import hudson.model.Run;
+import hudson.model.Run.RunnerAbortedException;
 import hudson.model.listeners.RunListener;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
@@ -46,7 +47,9 @@ import hudson.tools.ToolInstallation;
 import hudson.util.ArgumentListBuilder;
 import hudson.util.FormValidation;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Map;
 
 import net.sf.json.JSONObject;
@@ -296,17 +299,28 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
         final ProcStarter procStarter = launcher.launch().cmds(cmd);
 
+        final OutputStream stdout = debug ? listener.getLogger() : new ByteArrayOutputStream();
+        final OutputStream stderr = debug ? listener.getLogger() : new ByteArrayOutputStream();
+
         listener.getLogger().print(Messages.XvfbBuildWrapper_Starting());
-        if (debug) {
-            procStarter.stdout(listener).stderr(listener.getLogger());
-        }
-        else {
-            procStarter.stdout(TaskListener.NULL);
-        }
+        procStarter.stdout(stdout).stderr(stderr);
 
         final Proc process = procStarter.start();
 
         Thread.sleep(timeout * MILLIS_IN_SECOND);
+
+        if (!process.isAlive()) {
+            if (!debug) {
+                listener.getLogger().write(((ByteArrayOutputStream) stdout).toByteArray());
+                listener.getLogger().write(((ByteArrayOutputStream) stderr).toByteArray());
+            }
+
+            listener.getLogger().println();
+
+            listener.error(Messages.XvfbBuildWrapper_FailedToStart());
+
+            throw new RunnerAbortedException();
+        }
 
         final XvfbEnvironment xvfbEnvironment = new XvfbEnvironment(frameBufferDir, displayNameUsed, process, shutdownWithBuild);
 
