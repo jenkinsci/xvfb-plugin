@@ -1,0 +1,10 @@
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+  <f:section title="Xvfb">
+    <f:entry title="${%Minimum display number for random display strategy}" field="minDisplayNumber">
+      <f:textbox />
+    </f:entry>
+    <f:entry title="${%Maximum display number  for random display strategy}" field="maxDisplayNumber">
+      <f:textbox />
+    </f:entry>
+  </f:section>
+</j:jelly>

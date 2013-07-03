@@ -41,8 +41,29 @@ SUCH DAMAGE.
             </f:entry>
         </j:if>
 
+
+        <f:entry title="${%Assign random available display name}" field="assignRandomDisplay">
+              <f:checkbox name="assignRandomDisplay" checked="${instance.assignRandomDisplay}" onclick="disableOrEnableDisplayName(this)"/>
+              <script>
+                    document.observe("dom:loaded", function() {
+                        disableOrEnableDisplayName($$("[name='assignRandomDisplay']")[0])
+                });
+                  function disableOrEnableDisplayName(cb) {
+                    if (cb.checked) {
+                        $('displayNameTxt').disable()
+                        $('displayNameTxt').title='${%Ignored, display will be randomly assigned}'
+                    }
+                    else {
+                        $('displayNameTxt').enable()
+                        $('displayNameTxt').title=''
+                    }
+                  }
+            </script>
+        </f:entry>
+
+
         <f:entry title="${%Xvfb specific displayname}" field="displayName">
-            <f:textbox value="${instance.displayName}" />
+            <f:textbox id="displayNameTxt" value="${instance.displayName}" />
         </f:entry>
 
         <f:entry title="${%Timeout in seconds}" field="timeout">
