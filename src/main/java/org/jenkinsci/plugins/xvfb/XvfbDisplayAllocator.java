@@ -20,8 +20,12 @@ final class XvfbDisplayAllocator {
     }
 
     private final int getRandomValue(final int min, final int max) {
-        return min + (new Random().nextInt(getRange(min, max)));
+        return min + (new Random(makeRandomSeedByThread()).nextInt(getRange(min, max)));
     }
+
+	private long makeRandomSeedByThread() {
+		return System.nanoTime()+Thread.currentThread().getId();
+	}
 
     private int getRange(final int min, final int max) {
         return (max + 1) - min;

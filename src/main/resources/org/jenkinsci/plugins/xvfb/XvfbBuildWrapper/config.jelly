@@ -46,16 +46,16 @@ SUCH DAMAGE.
               <f:checkbox name="assignRandomDisplay" checked="${instance.assignRandomDisplay}" onclick="disableOrEnableDisplayName(this)"/>
               <script>
                     document.observe("dom:loaded", function() {
-                        disableOrEnableDisplayName($$("[name='assignRandomDisplay']")[0])
+                        disableOrEnableDisplayName($$$$("[name='assignRandomDisplay']")[0])
                 });
                   function disableOrEnableDisplayName(cb) {
                     if (cb.checked) {
-                        $('displayNameTxt').disable()
-                        $('displayNameTxt').title='${%Ignored, display will be randomly assigned}'
+                        $$('displayNameTxt').disable()
+                        $$('displayNameTxt').title='${%Ignored, display will be randomly assigned}'
                     }
                     else {
-                        $('displayNameTxt').enable()
-                        $('displayNameTxt').title=''
+                        $$('displayNameTxt').enable()
+                        $$('displayNameTxt').title=''
                     }
                   }
             </script>

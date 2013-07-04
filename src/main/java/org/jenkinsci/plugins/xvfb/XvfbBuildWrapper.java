@@ -304,7 +304,27 @@ public class XvfbBuildWrapper extends BuildWrapper {
             cmd = new ArgumentListBuilder(path + "/Xvfb");
         }
 
-        usedDisplayName = getDisplayNameForBuild(build);
+
+		for (int attempt = 0; attempt < 10; attempt++) {
+			try {
+				if (attempt > 0)
+					listener.getLogger().println(Messages.XvfbBuildWrapper_FailedTryAgain());
+				
+				return launchXvfbOrCry(build, launcher, listener, frameBufferDir, cmd);
+			} catch (RunnerAbortedException e) {
+				if (!assignRandomDisplay)
+					throw e;
+			}
+		}
+		throw new RunnerAbortedException();
+    }
+
+	private XvfbEnvironment launchXvfbOrCry(final AbstractBuild build,
+			final Launcher launcher, final BuildListener listener,
+			final FilePath frameBufferDir, final ArgumentListBuilder cmd)
+			throws IOException, InterruptedException {
+		usedDisplayName = getDisplayNameForBuild(build);
+        
         cmd.add(":" + usedDisplayName).add("-screen").add("0").add(screen).add("-fbdir").add(frameBufferDir);
 
         if (additionalOptions != null) {
@@ -339,7 +359,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
     }
 
 	@SuppressWarnings("rawtypes")
-	private synchronized int getDisplayNameForBuild(final AbstractBuild build) {
+	private int getDisplayNameForBuild(final AbstractBuild build) {
 		int displayNameUsed;
 		if (assignRandomDisplay) {
 			return allocator.allocate(getDescriptor().minDisplayNumber, getDescriptor().maxDisplayNumber);
