@@ -158,7 +158,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
         }
     }
     
-    private static XvfbDisplayAllocator allocator = new XvfbDisplayAllocator();
+    private static final XvfbDisplayAllocator allocator = new XvfbDisplayAllocator();
 
     private static final int    MILLIS_IN_SECOND  = 1000;
 
@@ -277,8 +277,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
     	return assignRandomDisplay;
     }
 
-    private XvfbEnvironment launchXvfb(@SuppressWarnings("rawtypes") final AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
-        usedDisplayName = getDisplayNameForBuild(build);
+    private synchronized XvfbEnvironment launchXvfb(@SuppressWarnings("rawtypes") final AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
 
         final Computer currentComputer = Computer.currentComputer();
         final Node currentNode = currentComputer.getNode();
@@ -305,6 +304,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
             cmd = new ArgumentListBuilder(path + "/Xvfb");
         }
 
+        usedDisplayName = getDisplayNameForBuild(build);
         cmd.add(":" + usedDisplayName).add("-screen").add("0").add(screen).add("-fbdir").add(frameBufferDir);
 
         if (additionalOptions != null) {
@@ -320,7 +320,6 @@ public class XvfbBuildWrapper extends BuildWrapper {
         procStarter.stdout(stdout).stderr(stderr);
 
         final Proc process = procStarter.start();
-
         Thread.sleep(timeout * MILLIS_IN_SECOND);
 
         if (!process.isAlive()) {
@@ -340,7 +339,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
     }
 
 	@SuppressWarnings("rawtypes")
-	private int getDisplayNameForBuild(final AbstractBuild build) {
+	private synchronized int getDisplayNameForBuild(final AbstractBuild build) {
 		int displayNameUsed;
 		if (assignRandomDisplay) {
 			return allocator.allocate(getDescriptor().minDisplayNumber, getDescriptor().maxDisplayNumber);
