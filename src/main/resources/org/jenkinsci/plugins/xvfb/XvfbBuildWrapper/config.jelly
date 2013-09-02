@@ -66,7 +66,7 @@ SUCH DAMAGE.
         </f:entry>
 
         <f:entry
-            title="${%Shoutdown Xvfb with whole job, not just with the main build action}"
+            title="${%Shutdown Xvfb with whole job, not just with the main build action}"
             field="shutdownWithBuild">
             <f:checkbox value="${instance.shutdownWithBuild}" />
         </f:entry>
