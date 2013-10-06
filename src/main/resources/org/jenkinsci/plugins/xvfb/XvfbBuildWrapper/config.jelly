@@ -41,7 +41,11 @@ SUCH DAMAGE.
             </f:entry>
         </j:if>
 
-        <f:entry title="${%Xvfb specific displayname}" field="displayName">
+        <f:entry title="${%Let Xvfb choose display name}" field="autoDisplayName">
+            <f:checkbox value="${instance.autoDisplayName}" />
+        </f:entry>
+
+        <f:entry title="${%Xvfb specific display name}" field="displayName">
             <f:textbox value="${instance.displayName}" />
         </f:entry>
 
