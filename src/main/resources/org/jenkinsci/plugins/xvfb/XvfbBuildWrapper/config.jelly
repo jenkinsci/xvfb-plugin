@@ -22,14 +22,18 @@ LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 SUCH DAMAGE.
 -->
-<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define"
+    xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
 
     <f:advanced>
         <j:if test="${!empty(descriptor.installations)}">
             <f:entry title="${%Xvfb installation}" field="installationName">
                 <select name="xvfb.installationName" class="setting-input">
-                    <j:forEach var="installation" items="${descriptor.installations}">
-                        <f:option selected="${installation.name == instance.installationName}" value="${installation.name}">
+                    <j:forEach var="installation"
+                        items="${descriptor.installations}">
+                        <f:option
+                            selected="${installation.name == instance.installationName}"
+                            value="${installation.name}">
                             ${installation.name}
                         </f:option>
                     </j:forEach>
@@ -61,12 +65,10 @@ SUCH DAMAGE.
             <f:checkbox value="${instance.debug}" />
         </f:entry>
 
-        <f:entry title="${%Shoutdown Xvfb with whole job, not just with the main build action}" field="shutdownWithBuild">
+        <f:entry
+            title="${%Shoutdown Xvfb with whole job, not just with the main build action}"
+            field="shutdownWithBuild">
             <f:checkbox value="${instance.shutdownWithBuild}" />
-        </f:entry>
-
-        <f:entry title="${%Use display name node offset}" field="useNodeOffsets">
-            <f:checkbox value="${instance.useNodeOffsets}" />
         </f:entry>
     </f:advanced>
 

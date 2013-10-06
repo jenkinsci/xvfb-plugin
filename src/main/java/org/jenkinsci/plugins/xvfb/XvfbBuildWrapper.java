@@ -50,10 +50,8 @@ import hudson.util.FormValidation;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.List;
 import java.util.Map;
 
-import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -61,6 +59,25 @@ import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
 public class XvfbBuildWrapper extends BuildWrapper {
+
+    @SuppressWarnings("rawtypes")
+    @Extension
+    public static final RunListener<Run> xvfbShutdownListener = new RunListener<Run>() {
+                                                                  @Override
+                                                                  public void onCompleted(Run r, TaskListener listener) {
+                                                                      XvfbEnvironment xvfbEnvironment = r.getAction(XvfbEnvironment.class);
+
+                                                                      if (xvfbEnvironment != null && xvfbEnvironment.isShutdownWithBuild()) {
+                                                                          try {
+                                                                              shutdownAndCleanup(xvfbEnvironment, listener);
+                                                                          } catch (IOException e) {
+                                                                              throw new RuntimeException(e);
+                                                                          } catch (InterruptedException e) {
+                                                                              throw new RuntimeException(e);
+                                                                          }
+                                                                      }
+                                                                  }
+                                                              };
 
     @Extension
     public static class XvfbBuildWrapperDescriptor extends BuildWrapperDescriptor {
@@ -130,69 +147,38 @@ public class XvfbBuildWrapper extends BuildWrapper {
         }
     }
 
-    @SuppressWarnings("rawtypes")
-    @Extension
-    public static final RunListener<Run> xvfbShutdownListener = new RunListener<Run>() {
-                                                                  @Override
-                                                                  public void onCompleted(final Run r, final TaskListener listener) {
-                                                                      final XvfbEnvironment xvfbEnvironment = r.getAction(XvfbEnvironment.class);
-
-                                                                      if (xvfbEnvironment != null && xvfbEnvironment.isShutdownWithBuild()) {
-                                                                          try {
-                                                                              shutdownAndCleanup(xvfbEnvironment, listener);
-                                                                          } catch (final IOException e) {
-                                                                              throw new RuntimeException(e);
-                                                                          } catch (final InterruptedException e) {
-                                                                              throw new RuntimeException(e);
-                                                                          }
-                                                                      }
-                                                                  }
-                                                              };
-
-    private static final int             MILLIS_IN_SECOND     = 1000;
+    private static final int    MILLIS_IN_SECOND  = 1000;
 
     /** default screen configuration for Xvfb, used by default, and if user left screen configuration blank */
-    private static final String          DEFAULT_SCREEN       = "1024x768x24";
-
-    private static void shutdownAndCleanup(final XvfbEnvironment environment, final TaskListener listener) throws IOException, InterruptedException {
-        final FilePath frameBufferDir = environment.getFrameBufferDir();
-        final Proc process = environment.getProcess();
-
-        listener.getLogger().println(Messages.XvfbBuildWrapper_Stopping());
-        process.kill();
-        frameBufferDir.deleteRecursive();
-    }
+    private static final String DEFAULT_SCREEN    = "1024x768x24";
 
     /** Name of the installation used in a configured job. */
-    private final String  installationName;
+    private final String        installationName;
 
     /** X11 DISPLAY name, if NULL chosen by random. */
-    private final Integer displayName;
+    private final Integer       displayName;
 
     /** Xvfb screen argument, in the form WxHxD (width x height x pixel depth), i.e. 800x600x8. */
-    private String        screen            = DEFAULT_SCREEN;
+    private String              screen            = DEFAULT_SCREEN;
 
     /** Should the Xvfb output be displayed in job output. */
-    private boolean       debug             = false;
+    private boolean             debug             = false;
 
     /** Time in milliseconds to wait for Xvfb initialization, by default 0 -- do not wait. */
-    private final long    timeout;
+    private final long          timeout;
 
     /** Offset for display names, default is 1. Display names are taken from build executor's number, i.e. if the build is performed by executor 4, and offset is 100, display name will be 104. */
-    private int           displayNameOffset = 1;
+    private int                 displayNameOffset = 1;
 
     /** Additional options to be passed to Xvfb */
-    private final String  additionalOptions;
+    private final String        additionalOptions;
 
     /** Should the Xvfb display be around for post build actions, i.e. should it terminate with the whole build */
-    private boolean       shutdownWithBuild = false;
-
-    /** Should the displayName be offsetted by the node index */
-    private boolean       useNodeOffsets    = false;
+    private boolean             shutdownWithBuild = false;
 
     @DataBoundConstructor
     public XvfbBuildWrapper(final String installationName, final Integer displayName, final String screen, final Boolean debug, final int timeout, final int displayNameOffset,
-            final String additionalOptions, final Boolean shutdownWithBuild, final Boolean useNodeOffsets) {
+            final String additionalOptions, Boolean shutdownWithBuild) {
         this.installationName = installationName;
         this.displayName = displayName;
 
@@ -214,8 +200,6 @@ public class XvfbBuildWrapper extends BuildWrapper {
         this.additionalOptions = additionalOptions;
 
         this.shutdownWithBuild = shutdownWithBuild;
-
-        this.useNodeOffsets = useNodeOffsets;
     }
 
     public String getAdditionalOptions() {
@@ -271,27 +255,19 @@ public class XvfbBuildWrapper extends BuildWrapper {
         return shutdownWithBuild;
     }
 
-    public boolean isUseNodeOffsets() {
-        return useNodeOffsets;
-    }
-
     private XvfbEnvironment launchXvfb(@SuppressWarnings("rawtypes") final AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
         int displayNameUsed;
 
-        final Computer currentComputer = Computer.currentComputer();
-        final Node currentNode = currentComputer.getNode();
-
         if (displayName == null) {
             final Executor executor = build.getExecutor();
-
-            final int nodeOffset = nodeOffsetFor(currentNode);
-
-            displayNameUsed = nodeOffset + executor.getNumber() + displayNameOffset;
+            displayNameUsed = executor.getNumber() + displayNameOffset;
         }
         else {
             displayNameUsed = displayName;
         }
 
+        final Computer currentComputer = Computer.currentComputer();
+        final Node currentNode = currentComputer.getNode();
         final FilePath rootPath = currentNode.getRootPath();
 
         final FilePath frameBufferDir = rootPath.createTempDir(build.getId(), "xvfb");
@@ -362,22 +338,13 @@ public class XvfbBuildWrapper extends BuildWrapper {
         }
     }
 
-    private int nodeOffsetFor(final Node currentNode) {
-        final String nodeName = currentNode.getNodeName();
+    private static void shutdownAndCleanup(XvfbEnvironment environment, TaskListener listener) throws IOException, InterruptedException {
+        final FilePath frameBufferDir = environment.getFrameBufferDir();
+        final Proc process = environment.getProcess();
 
-        if (!useNodeOffsets || "".equals(nodeName)) {
-            return 0;
-        }
-
-        final List<Node> nodes = Jenkins.getInstance().getNodes();
-
-        final int idx = nodes.indexOf(currentNode);
-
-        if (idx < 0) {
-            return 0;
-        }
-
-        return 1000 * (idx + 1);
+        listener.getLogger().println(Messages.XvfbBuildWrapper_Stopping());
+        process.kill();
+        frameBufferDir.deleteRecursive();
     }
 
     @Override
