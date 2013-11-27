@@ -41,16 +41,28 @@ import hudson.model.Node;
 import hudson.model.Run;
 import hudson.model.Run.RunnerAbortedException;
 import hudson.model.listeners.RunListener;
+import hudson.remoting.Callable;
+import hudson.remoting.Channel;
+import hudson.remoting.ChannelClosedException;
+import hudson.slaves.ComputerListener;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.tools.ToolInstallation;
 import hudson.util.ArgumentListBuilder;
 import hudson.util.FormValidation;
+import hudson.util.ProcessTree;
+import hudson.util.ProcessTree.OSProcess;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import net.sf.json.JSONObject;
 
@@ -128,40 +140,122 @@ public class XvfbBuildWrapper extends BuildWrapper {
         }
     }
 
-    private static final String          STDERR_FD            = "2";
+    private static final String                             STDERR_FD            = "2";
 
     @SuppressWarnings("rawtypes")
     @Extension
-    public static final RunListener<Run> xvfbShutdownListener = new RunListener<Run>() {
-                                                                  @Override
-                                                                  public void onCompleted(final Run r, final TaskListener listener) {
-                                                                      final XvfbEnvironment xvfbEnvironment = r.getAction(XvfbEnvironment.class);
+    public static final RunListener<Run>                    xvfbShutdownListener = new RunListener<Run>() {
+                                                                                     @Override
+                                                                                     public void onCompleted(final Run r, final TaskListener listener) {
+                                                                                         final XvfbEnvironment xvfbEnvironment = r.getAction(XvfbEnvironment.class);
 
-                                                                      if (xvfbEnvironment != null && xvfbEnvironment.isShutdownWithBuild()) {
-                                                                          try {
-                                                                              shutdownAndCleanup(xvfbEnvironment, listener);
-                                                                          } catch (final IOException e) {
-                                                                              throw new RuntimeException(e);
-                                                                          } catch (final InterruptedException e) {
-                                                                              throw new RuntimeException(e);
-                                                                          }
-                                                                      }
-                                                                  }
-                                                              };
+                                                                                         if (xvfbEnvironment != null && xvfbEnvironment.isShutdownWithBuild()) {
+                                                                                             try {
+                                                                                                 shutdownAndCleanup(xvfbEnvironment, listener);
+                                                                                             } catch (final IOException e) {
+                                                                                                 throw new RuntimeException(e);
+                                                                                             } catch (final InterruptedException e) {
+                                                                                                 throw new RuntimeException(e);
+                                                                                             }
+                                                                                         }
+                                                                                     }
+                                                                                 };
 
-    private static final int             MILLIS_IN_SECOND     = 1000;
+    private static final Map<String, List<XvfbEnvironment>> zombies              = new ConcurrentHashMap<String, List<XvfbEnvironment>>();
+
+    @Extension
+    public static final ComputerListener                    nodeListener         = new ComputerListener() {
+                                                                                     @Override
+                                                                                     public void preOnline(final Computer c, final Channel channel, final FilePath root, final TaskListener listener)
+                                                                                             throws IOException, InterruptedException {
+                                                                                         final List<XvfbEnvironment> zombiesAtComputer = zombies.get(c.getName());
+
+                                                                                         if (zombiesAtComputer == null) {
+                                                                                             return;
+                                                                                         }
+
+                                                                                         final List<XvfbEnvironment> slained = new ArrayList<XvfbEnvironment>();
+                                                                                         for (final XvfbEnvironment zombie : zombiesAtComputer) {
+                                                                                             shutdownAndCleanupZombie(channel, zombie, listener);
+
+                                                                                             slained.add(zombie);
+                                                                                         }
+
+                                                                                         zombiesAtComputer.removeAll(slained);
+                                                                                     }
+
+                                                                                 };
+
+    private static final int                                MILLIS_IN_SECOND     = 1000;
 
     /** default screen configuration for Xvfb, used by default, and if user left screen configuration blank */
-    private static final String          DEFAULT_SCREEN       = "1024x768x24";
+    private static final String                             DEFAULT_SCREEN       = "1024x768x24";
 
     private static void shutdownAndCleanup(final XvfbEnvironment environment, final TaskListener listener) throws IOException, InterruptedException {
         final FilePath frameBufferDir = environment.getFrameBufferDir();
         final Proc process = environment.getProcess();
 
         listener.getLogger().println(Messages.XvfbBuildWrapper_Stopping());
-        process.kill();
-        frameBufferDir.deleteRecursive();
+
+        try {
+            process.kill();
+            frameBufferDir.deleteRecursive();
+        } catch (final ChannelClosedException e) {
+            synchronized (zombies) {
+                final Computer currentComputer = Computer.currentComputer();
+                final String computerName = currentComputer.getName();
+
+                List<XvfbEnvironment> zombiesAtComputer = zombies.get(computerName);
+
+                if (zombiesAtComputer == null) {
+                    zombiesAtComputer = new CopyOnWriteArrayList<XvfbEnvironment>();
+                    zombies.put(computerName, zombiesAtComputer);
+                }
+
+                zombiesAtComputer.add(environment);
+            }
+        }
     }
+
+    private static void shutdownAndCleanupZombie(final Channel channel, final XvfbEnvironment zombie, final TaskListener listener) throws IOException, InterruptedException {
+        final Integer displayNameUsed = zombie.getDisplayNameUsed();
+        final String remoteDir = zombie.getRemoteFrameBufferDir();
+
+        listener.getLogger().println(Messages.XvfbBuildWrapper_KillingZombies(displayNameUsed, remoteDir));
+
+        try {
+            channel.call(new Callable<Void, InterruptedException>() {
+                private static final long serialVersionUID = 1L;
+
+                public Void call() throws InterruptedException {
+                    final ProcessTree processTree = ProcessTree.get();
+
+                    for (final Iterator<OSProcess> i = processTree.iterator(); i.hasNext();) {
+                        final OSProcess osProcess = i.next();
+
+                        final List<String> arguments = osProcess.getArguments();
+
+                        final int idx = arguments.indexOf("-fbdir");
+
+                        if (idx > 0) {
+                            final String fbdir = arguments.get(idx + 1);
+
+                            if (remoteDir.equals(fbdir)) {
+                                osProcess.kill();
+                                new File(fbdir).delete();
+                            }
+                        }
+                    }
+
+                    return null;
+                }
+            });
+        } catch (final InterruptedException e) {
+            // if we propagate the exception, slave will be obstructed from going online
+            listener.getLogger().println(Messages.XvfbBuildWrapper_ZombieSlainFailed());
+            e.printStackTrace(listener.getLogger());
+        }
+    };
 
     /** Name of the installation used in a configured job. */
     private final String  installationName;
