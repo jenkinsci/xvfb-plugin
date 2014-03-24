@@ -31,6 +31,7 @@ import hudson.FilePath;
 import hudson.Launcher;
 import hudson.Launcher.ProcStarter;
 import hudson.Proc;
+import hudson.XmlFile;
 import hudson.model.BuildListener;
 import hudson.model.TaskListener;
 import hudson.model.AbstractBuild;
@@ -64,6 +65,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -161,35 +163,55 @@ public class XvfbBuildWrapper extends BuildWrapper {
                                                                                      }
                                                                                  };
 
-    private static final Map<String, List<XvfbEnvironment>> zombies              = new ConcurrentHashMap<String, List<XvfbEnvironment>>();
+    private static final Map<String, List<XvfbEnvironment>> zombies              = createOrLoadZombiesMap();
+
+    private static ConcurrentHashMap<String, List<XvfbEnvironment>> createOrLoadZombiesMap() {
+        Jenkins.XSTREAM.registerConverter(new XvfbEnvironmentConverter());
+
+        final XmlFile fileOfZombies = zombiesFile();
+
+        if (fileOfZombies.exists()) {
+            try {
+                @SuppressWarnings("unchecked")
+                final ConcurrentHashMap<String, List<XvfbEnvironment>> oldZombies = (ConcurrentHashMap<String, List<XvfbEnvironment>>) fileOfZombies.read();
+
+                return oldZombies;
+            } catch (IOException ignore) {
+            } finally {
+                fileOfZombies.delete();
+            }
+        }
+
+        return new ConcurrentHashMap<String, List<XvfbEnvironment>>();
+    }
 
     @Extension
-    public static final ComputerListener                    nodeListener         = new ComputerListener() {
-                                                                                     @Override
-                                                                                     public void preOnline(final Computer c, final Channel channel, final FilePath root, final TaskListener listener)
-                                                                                             throws IOException, InterruptedException {
-                                                                                         final List<XvfbEnvironment> zombiesAtComputer = zombies.get(c.getName());
+    public static final ComputerListener nodeListener     = new ComputerListener() {
+                                                              @Override
+                                                              public void preOnline(final Computer c, final Channel channel, final FilePath root, final TaskListener listener) throws IOException,
+                                                                      InterruptedException {
+                                                                  final List<XvfbEnvironment> zombiesAtComputer = zombies.get(c.getName());
 
-                                                                                         if (zombiesAtComputer == null) {
-                                                                                             return;
-                                                                                         }
+                                                                  if (zombiesAtComputer == null) {
+                                                                      return;
+                                                                  }
 
-                                                                                         final List<XvfbEnvironment> slained = new ArrayList<XvfbEnvironment>();
-                                                                                         for (final XvfbEnvironment zombie : zombiesAtComputer) {
-                                                                                             shutdownAndCleanupZombie(channel, zombie, listener);
+                                                                  final List<XvfbEnvironment> slained = new ArrayList<XvfbEnvironment>();
+                                                                  for (final XvfbEnvironment zombie : zombiesAtComputer) {
+                                                                      shutdownAndCleanupZombie(channel, zombie, listener);
 
-                                                                                             slained.add(zombie);
-                                                                                         }
+                                                                      slained.add(zombie);
+                                                                  }
 
-                                                                                         zombiesAtComputer.removeAll(slained);
-                                                                                     }
+                                                                  zombiesAtComputer.removeAll(slained);
+                                                              }
 
-                                                                                 };
+                                                          };
 
-    private static final int                                MILLIS_IN_SECOND     = 1000;
+    private static final int             MILLIS_IN_SECOND = 1000;
 
     /** default screen configuration for Xvfb, used by default, and if user left screen configuration blank */
-    private static final String                             DEFAULT_SCREEN       = "1024x768x24";
+    private static final String          DEFAULT_SCREEN   = "1024x768x24";
 
     private static void shutdownAndCleanup(final XvfbEnvironment environment, final TaskListener listener) throws IOException, InterruptedException {
         final FilePath frameBufferDir = environment.getFrameBufferDir();
@@ -213,8 +235,15 @@ public class XvfbBuildWrapper extends BuildWrapper {
                 }
 
                 zombiesAtComputer.add(environment);
+
+                final XmlFile fileOfZombies = zombiesFile();
+                fileOfZombies.write(zombies);
             }
         }
+    }
+
+    private static XmlFile zombiesFile() {
+        return new XmlFile(Jenkins.XSTREAM, new File(Jenkins.getInstance().getRootDir(), XvfbEnvironment.class.getName() + "-zombies.xml"));
     }
 
     private static void shutdownAndCleanupZombie(final Channel channel, final XvfbEnvironment zombie, final TaskListener listener) throws IOException, InterruptedException {
