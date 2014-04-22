@@ -74,7 +74,7 @@ import org.kohsuke.stapler.StaplerRequest;
 
 public class XvfbBuildWrapper extends BuildWrapper {
 
-    @Extension
+    @Extension(ordinal = Double.MAX_VALUE)
     public static class XvfbBuildWrapperDescriptor extends BuildWrapperDescriptor {
 
         /** Xvfb installations, this descriptor persists all installations configured. */
