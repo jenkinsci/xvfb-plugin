@@ -31,16 +31,21 @@ import hudson.FilePath;
 import hudson.Launcher;
 import hudson.Launcher.ProcStarter;
 import hudson.Proc;
+import hudson.Util;
 import hudson.XmlFile;
+import hudson.model.AutoCompletionCandidates;
 import hudson.model.BuildListener;
 import hudson.model.TaskListener;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
+import hudson.model.AbstractProject.AbstractProjectDescriptor;
 import hudson.model.Computer;
 import hudson.model.Executor;
+import hudson.model.Label;
 import hudson.model.Node;
 import hudson.model.Run;
 import hudson.model.Run.RunnerAbortedException;
+import hudson.model.labels.LabelAtom;
 import hudson.model.listeners.RunListener;
 import hudson.remoting.Callable;
 import hudson.remoting.Channel;
@@ -62,12 +67,14 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
@@ -139,6 +146,18 @@ public class XvfbBuildWrapper extends BuildWrapper {
             }
 
             return FormValidation.validatePositiveInteger(value);
+        }
+
+        public AutoCompletionCandidates doAutoCompleteAssignedLabels(@AncestorInPath AbstractProject<?, ?> project, @QueryParameter String value) {
+            final AbstractProjectDescriptor projectDescriptor = (AbstractProjectDescriptor) project.getDescriptorByName(project.getClass().getName());
+
+            return projectDescriptor.doAutoCompleteAssignedLabelString(value);
+        }
+
+        public FormValidation doCheckAssignedLabels(@AncestorInPath AbstractProject<?, ?> project, @QueryParameter String value) {
+            final AbstractProjectDescriptor projectDescriptor = (AbstractProjectDescriptor) project.getDescriptorByName(project.getClass().getName());
+
+            return projectDescriptor.doCheckAssignedLabelString(value);
         }
     }
 
@@ -313,9 +332,12 @@ public class XvfbBuildWrapper extends BuildWrapper {
     /** Let Xvfb pick display number */
     private boolean       autoDisplayName   = false;
 
+    /** Run only on ondes labeled */
+    private final String  assignedLabels;
+
     @DataBoundConstructor
     public XvfbBuildWrapper(final String installationName, final Integer displayName, final String screen, final Boolean debug, final int timeout, final int displayNameOffset,
-            final String additionalOptions, final Boolean shutdownWithBuild, final Boolean autoDisplayName) {
+            final String additionalOptions, final Boolean shutdownWithBuild, final Boolean autoDisplayName, String assignedLabels) {
         this.installationName = installationName;
         this.displayName = displayName;
 
@@ -343,10 +365,16 @@ public class XvfbBuildWrapper extends BuildWrapper {
         if (autoDisplayName != null) {
             this.autoDisplayName = autoDisplayName;
         }
+
+        this.assignedLabels = Util.fixEmptyAndTrim(assignedLabels);
     }
 
     public String getAdditionalOptions() {
         return additionalOptions;
+    }
+
+    public String getAssignedLabels() {
+        return assignedLabels;
     }
 
     @Override
@@ -506,6 +534,26 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
     @Override
     public Environment setUp(@SuppressWarnings("rawtypes") final AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
+        final Set<LabelAtom> labels = Label.parse(assignedLabels);
+        if (!labels.isEmpty()) {
+            final Computer computer = Computer.currentComputer();
+            final Node node = computer.getNode();
+
+            boolean foundMatch = false;
+            for (LabelAtom label : labels) {
+                if (label.matches(node)) {
+                    foundMatch = true;
+                    break;
+                }
+            }
+            
+            if (!foundMatch) {
+                // not running on node with requested label
+                return new Environment() {
+                };
+            }
+        }
+
         if (!launcher.isUnix()) {
             listener.getLogger().println(Messages.XvfbBuildWrapper_NotUnix());
 
