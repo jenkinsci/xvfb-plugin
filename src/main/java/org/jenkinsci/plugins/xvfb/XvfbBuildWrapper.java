@@ -38,7 +38,6 @@ import hudson.model.BuildListener;
 import hudson.model.TaskListener;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
-import hudson.model.AbstractProject.AbstractProjectDescriptor;
 import hudson.model.Computer;
 import hudson.model.Executor;
 import hudson.model.Label;
@@ -78,6 +77,8 @@ import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
+
+import antlr.ANTLRException;
 
 public class XvfbBuildWrapper extends BuildWrapper {
 
@@ -148,16 +149,46 @@ public class XvfbBuildWrapper extends BuildWrapper {
             return FormValidation.validatePositiveInteger(value);
         }
 
+        /** adopted from @see hudson.model.AbstractProject.AbstractProjectDescriptor#doAutoCompleteAssignedLabels */
         public AutoCompletionCandidates doAutoCompleteAssignedLabels(@AncestorInPath AbstractProject<?, ?> project, @QueryParameter String value) {
-            final AbstractProjectDescriptor projectDescriptor = (AbstractProjectDescriptor) project.getDescriptorByName(project.getClass().getName());
+            final AutoCompletionCandidates candidates = new AutoCompletionCandidates();
+            final Set<Label> labels = Jenkins.getInstance().getLabels();
 
-            return projectDescriptor.doAutoCompleteAssignedLabelString(value);
+            for (Label label : labels) {
+                if (value == null || label.getName().startsWith(value)) {
+                    candidates.add(label.getName());
+                }
+            }
+
+            return candidates;
         }
 
+        /** adopted from @see hudson.model.AbstractProject.AbstractProjectDescriptor#doCheckAssignedLabels */
         public FormValidation doCheckAssignedLabels(@AncestorInPath AbstractProject<?, ?> project, @QueryParameter String value) {
-            final AbstractProjectDescriptor projectDescriptor = (AbstractProjectDescriptor) project.getDescriptorByName(project.getClass().getName());
+            if (Util.fixEmpty(value) == null) {
+                return FormValidation.ok();
+            }
 
-            return projectDescriptor.doCheckAssignedLabelString(value);
+            try {
+                Label.parseExpression(value);
+            } catch (ANTLRException e) {
+                return FormValidation.error(e, Messages.XvfbBuildWrapper_AssignedLabelString_InvalidBooleanExpression(e.getMessage()));
+            }
+
+            final Jenkins jenkins = Jenkins.getInstance();
+            final Label label = jenkins.getLabel(value);
+
+            if (label.isEmpty()) {
+                for (LabelAtom labelAtom : label.listAtoms()) {
+                    if (labelAtom.isEmpty()) {
+                        LabelAtom nearest = LabelAtom.findNearest(labelAtom.getName());
+                        return FormValidation.warning(Messages.XvfbBuildWrapper_AssignedLabelString_NoMatch_DidYouMean(labelAtom.getName(), nearest.getDisplayName()));
+                    }
+                }
+                return FormValidation.warning(Messages.XvfbBuildWrapper_AssignedLabelString_NoMatch());
+            }
+
+            return FormValidation.okWithMarkup(Messages.XvfbBuildWrapper_LabelLink(jenkins.getRootUrl(), label.getUrl(), label.getNodes().size() + label.getClouds().size()));
         }
     }
 
@@ -534,20 +565,18 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
     @Override
     public Environment setUp(@SuppressWarnings("rawtypes") final AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
-        final Set<LabelAtom> labels = Label.parse(assignedLabels);
-        if (!labels.isEmpty()) {
+        if (assignedLabels != null || assignedLabels.trim().isEmpty()) {
+            final Label label;
+            try {
+                label = Label.parseExpression(assignedLabels);
+            } catch (ANTLRException e) {
+                throw new IOException(e);
+            }
+
             final Computer computer = Computer.currentComputer();
             final Node node = computer.getNode();
 
-            boolean foundMatch = false;
-            for (LabelAtom label : labels) {
-                if (label.matches(node)) {
-                    foundMatch = true;
-                    break;
-                }
-            }
-            
-            if (!foundMatch) {
+            if (!label.matches(node)) {
                 // not running on node with requested label
                 return new Environment() {
                 };
