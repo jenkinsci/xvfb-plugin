@@ -565,7 +565,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
     @Override
     public Environment setUp(@SuppressWarnings("rawtypes") final AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
-        if (assignedLabels != null || assignedLabels.trim().isEmpty()) {
+        if (assignedLabels != null && !assignedLabels.trim().isEmpty()) {
             final Label label;
             try {
                 label = Label.parseExpression(assignedLabels);
