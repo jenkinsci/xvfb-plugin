@@ -16,7 +16,7 @@ public class XvfbEnvironmentConverter implements Converter {
     private static final String DISPLAY_NAME_USED_ATTR       = "displayNameUsed";
 
     public boolean canConvert(@SuppressWarnings("rawtypes") Class type) {
-        return XvfbEnvironment.class.isAssignableFrom(type);
+        return type != null && XvfbEnvironment.class.isAssignableFrom(type);
     }
 
     public void marshal(Object source, HierarchicalStreamWriter writer, MarshallingContext context) {
