@@ -481,7 +481,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
         final Node currentNode = currentComputer.getNode();
         final FilePath rootPath = currentNode.getRootPath();
 
-        final FilePath frameBufferDir = rootPath.createTempDir(build.getId(), "xvfb");
+        final FilePath frameBufferDir = rootPath.createTempDir("xvfb-" + build.getId() + "-", ".fbdir"); 
 
         final EnvVars environment = currentComputer.getEnvironment();
         final XvfbInstallation installation = getInstallation(environment, currentNode, listener);
