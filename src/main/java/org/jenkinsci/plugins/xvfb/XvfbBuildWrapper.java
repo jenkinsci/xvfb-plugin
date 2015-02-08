@@ -339,7 +339,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
     /** Name of the installation used in a configured job. */
     private final String  installationName;
 
-    /** X11 DISPLAY name, if NULL chosen by random. */
+    /** X11 DISPLAY name, if NULL chosen based on current executor number. */
     private final Integer displayName;
 
     /** Xvfb screen argument, in the form WxHxD (width x height x pixel depth), i.e. 800x600x8. */
