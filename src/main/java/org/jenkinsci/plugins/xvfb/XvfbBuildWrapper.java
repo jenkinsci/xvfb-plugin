@@ -63,6 +63,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -258,6 +260,16 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
                                                           };
 
+    private static final class ComputerNameComparator implements Comparator<Computer> {
+
+    	private static final ComputerNameComparator INSTANCE = new ComputerNameComparator();
+
+		public int compare(Computer left, Computer right) {
+			return left.getName().compareTo(right.getName());
+		}
+
+    }
+
     private static final int             MILLIS_IN_SECOND = 1000;
 
     /** default screen configuration for Xvfb, used by default, and if user left screen configuration blank */
@@ -363,12 +375,15 @@ public class XvfbBuildWrapper extends BuildWrapper {
     /** Let Xvfb pick display number */
     private boolean       autoDisplayName   = false;
 
-    /** Run only on ondes labeled */
+    /** Run only on nodes labeled */
     private final String  assignedLabels;
+
+    /** Run on same node in parallel */
+    private boolean       parallelBuild     = false;
 
     @DataBoundConstructor
     public XvfbBuildWrapper(final String installationName, final Integer displayName, final String screen, final Boolean debug, final int timeout, final int displayNameOffset,
-            final String additionalOptions, final Boolean shutdownWithBuild, final Boolean autoDisplayName, String assignedLabels) {
+            final String additionalOptions, final Boolean shutdownWithBuild, final Boolean autoDisplayName, String assignedLabels, final Boolean parallelBuild) {
         this.installationName = installationName;
         this.displayName = displayName;
 
@@ -398,6 +413,8 @@ public class XvfbBuildWrapper extends BuildWrapper {
         }
 
         this.assignedLabels = Util.fixEmptyAndTrim(assignedLabels);
+
+        this.parallelBuild = parallelBuild;
     }
 
     public String getAdditionalOptions() {
@@ -457,27 +474,38 @@ public class XvfbBuildWrapper extends BuildWrapper {
         return debug;
     }
 
+    public boolean isParallelBuild(){
+    	return parallelBuild;
+    }
+
     public boolean isShutdownWithBuild() {
         return shutdownWithBuild;
     }
 
     private XvfbEnvironment launchXvfb(@SuppressWarnings("rawtypes") final AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
-        int displayNameUsed;
+    	final Computer currentComputer = Computer.currentComputer();
+
+    	int displayNameUsed;
 
         if (displayName == null) {
             if (!autoDisplayName) {
                 final Executor executor = build.getExecutor();
-                displayNameUsed = executor.getNumber() + displayNameOffset;
-            }
-            else {
-                displayNameUsed = -1;
+                if (parallelBuild) {
+                	final Computer[] computers = Jenkins.getInstance().getComputers();
+                	final int nodeIndex = Arrays.binarySearch(computers, currentComputer, ComputerNameComparator.INSTANCE);
+
+                	displayNameUsed = nodeIndex * 100 + executor.getNumber() + displayNameOffset;
+                } else {
+                	displayNameUsed = executor.getNumber() + displayNameOffset;
+                }
+            } else {
+            	displayNameUsed = -1;
             }
         }
         else {
             displayNameUsed = displayName;
         }
 
-        final Computer currentComputer = Computer.currentComputer();
         final Node currentNode = currentComputer.getNode();
         final FilePath rootPath = currentNode.getRootPath();
 
