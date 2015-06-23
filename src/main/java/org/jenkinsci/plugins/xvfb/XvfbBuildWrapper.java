@@ -77,6 +77,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import jenkins.model.Jenkins;
+import jenkins.security.MasterToSlaveCallable;
 import net.sf.json.JSONObject;
 
 import org.kohsuke.stapler.AncestorInPath;
@@ -319,7 +320,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
         listener.getLogger().println(Messages.XvfbBuildWrapper_KillingZombies(displayNameUsed, remoteDir));
 
         try {
-            channel.call(new Callable<Void, InterruptedException>() {
+            channel.call(new MasterToSlaveCallable<Void, InterruptedException>() {
                 private static final long serialVersionUID = 1L;
 
                 public Void call() throws InterruptedException {
