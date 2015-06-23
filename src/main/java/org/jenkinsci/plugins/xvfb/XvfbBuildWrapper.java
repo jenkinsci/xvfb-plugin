@@ -50,7 +50,6 @@ import hudson.model.Run;
 import hudson.model.Run.RunnerAbortedException;
 import hudson.model.labels.LabelAtom;
 import hudson.model.listeners.RunListener;
-import hudson.remoting.Callable;
 import hudson.remoting.Channel;
 import hudson.remoting.ChannelClosedException;
 import hudson.slaves.ComputerListener;
@@ -525,28 +524,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
             throw new InterruptedException();
         }
 
-        final String path = installation.getHome();
-
-        final ArgumentListBuilder cmd;
-        if ("".equals(path)) {
-            cmd = new ArgumentListBuilder("Xvfb");
-        }
-        else {
-            cmd = new ArgumentListBuilder(path + "/Xvfb");
-        }
-
-        if (autoDisplayName) {
-            cmd.add("-displayfd", STDERR_FD);
-        }
-        else {
-            cmd.add(":" + displayNameUsed);
-        }
-
-        cmd.add("-screen").add("0").add(screen).add("-fbdir").add(frameBufferDir);
-
-        if (additionalOptions != null) {
-            cmd.addTokenized(additionalOptions);
-        }
+        final ArgumentListBuilder cmd = createCommandArguments(installation, frameBufferDir, displayNameUsed);
 
         final ProcStarter procStarter = launcher.launch().cmds(cmd);
 
@@ -584,6 +562,33 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
         return xvfbEnvironment;
     }
+
+	protected ArgumentListBuilder createCommandArguments(final XvfbInstallation installation,
+			final FilePath frameBufferDir, int displayNameUsed) {
+		final String path = installation.getHome();
+
+        final ArgumentListBuilder cmd;
+        if ("".equals(path)) {
+            cmd = new ArgumentListBuilder("Xvfb");
+        }
+        else {
+            cmd = new ArgumentListBuilder(path + "/Xvfb");
+        }
+
+        if (autoDisplayName) {
+            cmd.add("-displayfd", STDERR_FD);
+        }
+        else {
+            cmd.add(":" + displayNameUsed);
+        }
+
+        cmd.add("-screen").add("0").add(screen).add("-fbdir").add(frameBufferDir);
+
+        if (additionalOptions != null) {
+            cmd.addTokenized(additionalOptions);
+        }
+		return cmd;
+	}
 
     @Override
     public void makeBuildVariables(@SuppressWarnings("rawtypes") final AbstractBuild build, final Map<String, String> variables) {
