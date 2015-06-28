@@ -38,9 +38,7 @@ import hudson.Proc;
 import hudson.Util;
 import hudson.XmlFile;
 import hudson.model.AutoCompletionCandidates;
-import hudson.model.BuildListener;
 import hudson.model.TaskListener;
-import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.Computer;
 import hudson.model.Executor;
@@ -67,26 +65,32 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import jenkins.model.Jenkins;
 import jenkins.security.MasterToSlaveCallable;
+import jenkins.tasks.SimpleBuildWrapper;
 import net.sf.json.JSONObject;
 
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
 import antlr.ANTLRException;
 
-public class XvfbBuildWrapper extends BuildWrapper {
+public class XvfbBuildWrapper extends SimpleBuildWrapper {
+
+    private static final String JENKINS_XVFB_COOKIE = "_JENKINS_XVFB_COOKIE";
 
     @Extension(ordinal = Double.MAX_VALUE)
     public static class XvfbBuildWrapperDescriptor extends BuildWrapperDescriptor {
@@ -205,17 +209,17 @@ public class XvfbBuildWrapper extends BuildWrapper {
     public static final RunListener<Run>                    xvfbShutdownListener = new RunListener<Run>() {
                                                                                      @Override
                                                                                      public void onCompleted(final Run r, final TaskListener listener) {
-                                                                                         final XvfbEnvironment xvfbEnvironment = r.getAction(XvfbEnvironment.class);
-
-                                                                                         if (xvfbEnvironment != null && xvfbEnvironment.isShutdownWithBuild()) {
-                                                                                             try {
-                                                                                                 shutdownAndCleanup(xvfbEnvironment, listener);
-                                                                                             } catch (final IOException e) {
-                                                                                                 throw new RuntimeException(e);
-                                                                                             } catch (final InterruptedException e) {
-                                                                                                 throw new RuntimeException(e);
-                                                                                             }
-                                                                                         }
+                                                                                         //			final XvfbEnvironment xvfbEnvironment = r.getAction(XvfbEnvironment.class);
+                                                                                         //
+                                                                                         //			if (xvfbEnvironment != null && xvfbEnvironment.isShutdownWithBuild()) {
+                                                                                         //				try {
+                                                                                         //					shutdownAndCleanup(xvfbEnvironment, listener);
+                                                                                         //				} catch (final IOException e) {
+                                                                                         //					throw new RuntimeException(e);
+                                                                                         //				} catch (final InterruptedException e) {
+                                                                                         //					throw new RuntimeException(e);
+                                                                                         //				}
+                                                                                         //			}
                                                                                      }
                                                                                  };
 
@@ -242,52 +246,51 @@ public class XvfbBuildWrapper extends BuildWrapper {
     }
 
     @Extension
-    public static final ComputerListener nodeListener     = new ComputerListener() {
-                                                              @Override
-                                                              public void preOnline(final Computer c, final Channel channel, final FilePath root, final TaskListener listener) throws IOException,
-                                                                      InterruptedException {
-                                                                  final List<XvfbEnvironment> zombiesAtComputer = zombies.get(c.getName());
+    public static final ComputerListener nodeListener = new ComputerListener() {
+                                                          @Override
+                                                          public void preOnline(final Computer c, final Channel channel, final FilePath root, final TaskListener listener) throws IOException,
+                                                                  InterruptedException {
+                                                              final List<XvfbEnvironment> zombiesAtComputer = zombies.get(c.getName());
 
-                                                                  if (zombiesAtComputer == null) {
-                                                                      return;
-                                                                  }
-
-                                                                  final List<XvfbEnvironment> slained = new ArrayList<XvfbEnvironment>();
-                                                                  for (final XvfbEnvironment zombie : zombiesAtComputer) {
-                                                                      shutdownAndCleanupZombie(channel, zombie, listener);
-
-                                                                      slained.add(zombie);
-                                                                  }
-
-                                                                  zombiesAtComputer.removeAll(slained);
+                                                              if (zombiesAtComputer == null) {
+                                                                  return;
                                                               }
 
-                                                          };
+                                                              final List<XvfbEnvironment> slained = new ArrayList<XvfbEnvironment>();
+                                                              for (final XvfbEnvironment zombie : zombiesAtComputer) {
+                                                                  shutdownAndCleanupZombie(channel, zombie, listener);
+
+                                                                  slained.add(zombie);
+                                                              }
+
+                                                              zombiesAtComputer.removeAll(slained);
+                                                          }
+
+                                                      };
 
     private static final class ComputerNameComparator implements Comparator<Computer> {
 
-    	private static final ComputerNameComparator INSTANCE = new ComputerNameComparator();
+        private static final ComputerNameComparator INSTANCE = new ComputerNameComparator();
 
-		public int compare(Computer left, Computer right) {
-			return left.getName().compareTo(right.getName());
-		}
+        public int compare(Computer left, Computer right) {
+            return left.getName().compareTo(right.getName());
+        }
 
     }
 
-    private static final int             MILLIS_IN_SECOND = 1000;
+    private static final int MILLIS_IN_SECOND = 1000;
 
     /** default screen configuration for Xvfb, used by default, and if user left screen configuration blank */
-    private static final String          DEFAULT_SCREEN   = "1024x768x24";
+    static final String      DEFAULT_SCREEN   = "1024x768x24";
 
-    private static void shutdownAndCleanup(final XvfbEnvironment environment, final TaskListener listener) throws IOException, InterruptedException {
-        final FilePath frameBufferDir = environment.getFrameBufferDir();
-        final Proc process = environment.getProcess();
+    static void shutdownAndCleanup(final XvfbEnvironment xvfbEnvironment, final Launcher launcher, final TaskListener listener) throws IOException, InterruptedException {
 
         listener.getLogger().println(Messages.XvfbBuildWrapper_Stopping());
 
         try {
-            process.kill();
-            frameBufferDir.deleteRecursive();
+            launcher.kill(Collections.singletonMap(JENKINS_XVFB_COOKIE, xvfbEnvironment.cookie));
+            final FilePath frameBufferPath = new FilePath(launcher.getChannel(), xvfbEnvironment.frameBufferDir);
+            frameBufferPath.deleteRecursive();
         } catch (final ChannelClosedException e) {
             synchronized (zombies) {
                 final Computer currentComputer = Computer.currentComputer();
@@ -300,7 +303,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
                     zombies.put(computerName, zombiesAtComputer);
                 }
 
-                zombiesAtComputer.add(environment);
+                zombiesAtComputer.add(new XvfbEnvironment(xvfbEnvironment.cookie, xvfbEnvironment.frameBufferDir, xvfbEnvironment.displayName, false));
 
                 final XmlFile fileOfZombies = zombiesFile();
                 fileOfZombies.write(zombies);
@@ -313,10 +316,8 @@ public class XvfbBuildWrapper extends BuildWrapper {
     }
 
     private static void shutdownAndCleanupZombie(final Channel channel, final XvfbEnvironment zombie, final TaskListener listener) throws IOException, InterruptedException {
-        final Integer displayNameUsed = zombie.getDisplayNameUsed();
-        final String remoteDir = zombie.getRemoteFrameBufferDir();
 
-        listener.getLogger().println(Messages.XvfbBuildWrapper_KillingZombies(displayNameUsed, remoteDir));
+        listener.getLogger().println(Messages.XvfbBuildWrapper_KillingZombies(zombie.displayName, zombie.frameBufferDir));
 
         try {
             channel.call(new MasterToSlaveCallable<Void, InterruptedException>() {
@@ -328,17 +329,13 @@ public class XvfbBuildWrapper extends BuildWrapper {
                     for (final Iterator<OSProcess> i = processTree.iterator(); i.hasNext();) {
                         final OSProcess osProcess = i.next();
 
-                        final List<String> arguments = osProcess.getArguments();
+                        final EnvVars environment = osProcess.getEnvironmentVariables();
 
-                        final int idx = arguments.indexOf("-fbdir");
+                        final String processCookie = environment.get(JENKINS_XVFB_COOKIE);
 
-                        if (idx > 0) {
-                            final String fbdir = arguments.get(idx + 1);
-
-                            if (remoteDir.equals(fbdir)) {
-                                osProcess.kill();
-                                new File(fbdir).delete();
-                            }
+                        if (processCookie != null && processCookie.equals(zombie.cookie)) {
+                            osProcess.kill();
+                            new File(zombie.frameBufferDir).delete();
                         }
                     }
 
@@ -353,72 +350,40 @@ public class XvfbBuildWrapper extends BuildWrapper {
     };
 
     /** Name of the installation used in a configured job. */
-    private final String  installationName;
+    private String  installationName;
 
     /** X11 DISPLAY name, if NULL chosen based on current executor number. */
-    private final Integer displayName;
+    private Integer displayName;
 
     /** Xvfb screen argument, in the form WxHxD (width x height x pixel depth), i.e. 800x600x8. */
-    private String        screen            = DEFAULT_SCREEN;
+    private String  screen            = DEFAULT_SCREEN;
 
     /** Should the Xvfb output be displayed in job output. */
-    private boolean       debug             = false;
+    private boolean debug             = false;
 
     /** Time in milliseconds to wait for Xvfb initialization, by default 0 -- do not wait. */
-    private final long    timeout;
+    private long    timeout;
 
     /** Offset for display names, default is 1. Display names are taken from build executor's number, i.e. if the build is performed by executor 4, and offset is 100, display name will be 104. */
-    private int           displayNameOffset = 1;
+    private int     displayNameOffset = 1;
 
     /** Additional options to be passed to Xvfb */
-    private final String  additionalOptions;
+    private String  additionalOptions;
 
     /** Should the Xvfb display be around for post build actions, i.e. should it terminate with the whole build */
-    private boolean       shutdownWithBuild = false;
+    private boolean shutdownWithBuild = false;
 
     /** Let Xvfb pick display number */
-    private boolean       autoDisplayName   = false;
+    private boolean autoDisplayName   = false;
 
     /** Run only on nodes labeled */
-    private final String  assignedLabels;
+    private String  assignedLabels;
 
     /** Run on same node in parallel */
-    private boolean       parallelBuild     = false;
+    private boolean parallelBuild     = false;
 
     @DataBoundConstructor
-    public XvfbBuildWrapper(final String installationName, final Integer displayName, final String screen, final Boolean debug, final int timeout, final int displayNameOffset,
-            final String additionalOptions, final Boolean shutdownWithBuild, final Boolean autoDisplayName, String assignedLabels, final Boolean parallelBuild) {
-        this.installationName = installationName;
-        this.displayName = displayName;
-
-        if ("".equals(screen)) {
-            this.screen = DEFAULT_SCREEN;
-        }
-        else {
-            this.screen = screen;
-        }
-
-        this.debug = Boolean.TRUE.equals(debug);
-        this.timeout = timeout;
-        if (displayNameOffset <= 0) {
-            this.displayNameOffset = 1;
-        }
-        else {
-            this.displayNameOffset = displayNameOffset;
-        }
-        this.additionalOptions = additionalOptions;
-
-        if (shutdownWithBuild != null) {
-            this.shutdownWithBuild = shutdownWithBuild;
-        }
-
-        if (autoDisplayName != null) {
-            this.autoDisplayName = autoDisplayName;
-        }
-
-        this.assignedLabels = Util.fixEmptyAndTrim(assignedLabels);
-
-        this.parallelBuild = parallelBuild;
+    public XvfbBuildWrapper() {
     }
 
     public String getAdditionalOptions() {
@@ -442,7 +407,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
         return displayNameOffset;
     }
 
-    public XvfbInstallation getInstallation(final EnvVars env, final Node node, final BuildListener listener) {
+    public XvfbInstallation getInstallation(final EnvVars env, final Node node, final TaskListener listener) {
         for (final XvfbInstallation installation : getDescriptor().getInstallations()) {
             if (installationName != null && installationName.equals(installation.getName())) {
                 try {
@@ -478,32 +443,34 @@ public class XvfbBuildWrapper extends BuildWrapper {
         return debug;
     }
 
-    public boolean isParallelBuild(){
-    	return parallelBuild;
+    public boolean isParallelBuild() {
+        return parallelBuild;
     }
 
     public boolean isShutdownWithBuild() {
         return shutdownWithBuild;
     }
 
-    private XvfbEnvironment launchXvfb(@SuppressWarnings("rawtypes") final AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
-    	final Computer currentComputer = Computer.currentComputer();
+    private XvfbEnvironment launchXvfb(final Run<?, ?> run, final FilePath workspace, final Launcher launcher, final TaskListener listener) throws IOException, InterruptedException {
+        final Computer currentComputer = workspace.toComputer();
 
-    	int displayNameUsed;
+        int displayNameUsed;
 
         if (displayName == null) {
             if (!autoDisplayName) {
-                final Executor executor = build.getExecutor();
+                final Executor executor = run.getExecutor();
                 if (parallelBuild) {
-                	final Computer[] computers = Jenkins.getInstance().getComputers();
-                	final int nodeIndex = Arrays.binarySearch(computers, currentComputer, ComputerNameComparator.INSTANCE);
+                    final Computer[] computers = Jenkins.getInstance().getComputers();
+                    final int nodeIndex = Arrays.binarySearch(computers, currentComputer, ComputerNameComparator.INSTANCE);
 
-                	displayNameUsed = nodeIndex * 100 + executor.getNumber() + displayNameOffset;
-                } else {
-                	displayNameUsed = executor.getNumber() + displayNameOffset;
+                    displayNameUsed = nodeIndex * 100 + executor.getNumber() + displayNameOffset;
                 }
-            } else {
-            	displayNameUsed = -1;
+                else {
+                    displayNameUsed = executor.getNumber() + displayNameOffset;
+                }
+            }
+            else {
+                displayNameUsed = -1;
             }
         }
         else {
@@ -513,7 +480,7 @@ public class XvfbBuildWrapper extends BuildWrapper {
         final Node currentNode = currentComputer.getNode();
         final FilePath rootPath = currentNode.getRootPath();
 
-        final FilePath frameBufferDir = rootPath.createTempDir("xvfb-" + build.getId() + "-", ".fbdir"); 
+        final FilePath frameBufferDir = rootPath.createTempDir("xvfb-" + run.getId() + "-", ".fbdir");
 
         final EnvVars environment = currentComputer.getEnvironment();
         final XvfbInstallation installation = getInstallation(environment, currentNode, listener);
@@ -537,6 +504,9 @@ public class XvfbBuildWrapper extends BuildWrapper {
         listener.getLogger().print(Messages.XvfbBuildWrapper_Starting());
         procStarter.stdout(stdout).stderr(stderr);
 
+        final String cookie = UUID.randomUUID().toString();
+        procStarter.envs(Collections.singletonMap(JENKINS_XVFB_COOKIE, cookie));
+
         final Proc process = procStarter.start();
 
         Thread.sleep(timeout * MILLIS_IN_SECOND);
@@ -558,14 +528,13 @@ public class XvfbBuildWrapper extends BuildWrapper {
             displayNameUsed = stderr.getDisplayNumber();
         }
 
-        final XvfbEnvironment xvfbEnvironment = new XvfbEnvironment(frameBufferDir, displayNameUsed, process, shutdownWithBuild);
+        final XvfbEnvironment xvfbEnvironment = new XvfbEnvironment(cookie, frameBufferDir.getRemote(), displayNameUsed, shutdownWithBuild);
 
         return xvfbEnvironment;
     }
 
-	protected ArgumentListBuilder createCommandArguments(final XvfbInstallation installation,
-			final FilePath frameBufferDir, int displayNameUsed) {
-		final String path = installation.getHome();
+    protected ArgumentListBuilder createCommandArguments(final XvfbInstallation installation, final FilePath frameBufferDir, int displayNameUsed) {
+        final String path = installation.getHome();
 
         final ArgumentListBuilder cmd;
         if ("".equals(path)) {
@@ -587,22 +556,11 @@ public class XvfbBuildWrapper extends BuildWrapper {
         if (additionalOptions != null) {
             cmd.addTokenized(additionalOptions);
         }
-		return cmd;
-	}
-
-    @Override
-    public void makeBuildVariables(@SuppressWarnings("rawtypes") final AbstractBuild build, final Map<String, String> variables) {
-        final XvfbEnvironment xvfbEnvironment = build.getAction(XvfbEnvironment.class);
-
-        if (xvfbEnvironment != null) {
-            final int displayNameUsed = xvfbEnvironment.getDisplayNameUsed();
-
-            variables.put("DISPLAY", ":" + displayNameUsed);
-        }
+        return cmd;
     }
 
     @Override
-    public Environment setUp(@SuppressWarnings("rawtypes") final AbstractBuild build, final Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
+    public void setUp(Context context, Run<?, ?> run, FilePath workspace, Launcher launcher, TaskListener listener, EnvVars initialEnvironment) throws IOException, InterruptedException {
         if (assignedLabels != null && !assignedLabels.trim().isEmpty()) {
             final Label label;
             try {
@@ -616,39 +574,64 @@ public class XvfbBuildWrapper extends BuildWrapper {
 
             if (!label.matches(node)) {
                 // not running on node with requested label
-                return new Environment() {
-                };
+                return;
             }
         }
 
         if (!launcher.isUnix()) {
             listener.getLogger().println(Messages.XvfbBuildWrapper_NotUnix());
 
-            // we'll return empty environment
-            return new Environment() {
-            };
+            // we will not run on non Unix machines
+            return;
         }
 
-        final XvfbEnvironment xvfbEnvironment = launchXvfb(build, launcher, listener);
+        @SuppressWarnings("rawtypes")
+        final Run rawRun = (Run) run;
+        final XvfbEnvironment xvfbEnvironment = launchXvfb(rawRun, workspace, launcher, listener);
+        run.addAction(xvfbEnvironment);
 
-        build.addAction(xvfbEnvironment);
-
-        final int displayNameUsed = xvfbEnvironment.getDisplayNameUsed();
-
-        return new Environment() {
-            @Override
-            public void buildEnvVars(final Map<String, String> env) {
-                env.put("DISPLAY", ":" + displayNameUsed);
-            }
-
-            @Override
-            public boolean tearDown(@SuppressWarnings("rawtypes") final AbstractBuild build, final BuildListener listener) throws IOException, InterruptedException {
-                if (!shutdownWithBuild) {
-                    shutdownAndCleanup(xvfbEnvironment, listener);
-                }
-
-                return true;
-            }
-        };
+        context.env("DISPLAY", ":" + xvfbEnvironment.displayName);
+        context.setDisposer(new XvfbDisposer(xvfbEnvironment));
     }
+
+    @DataBoundSetter
+    public void setAdditionalOptions(String additionalOptions) {
+        this.additionalOptions = additionalOptions;
+    }
+
+    @DataBoundSetter
+    public void setAssignedLabels(String assignedLabels) {
+        this.assignedLabels = assignedLabels;
+    }
+
+    @DataBoundSetter
+    public void setAutoDisplayName(boolean autoDisplayName) {
+        this.autoDisplayName = autoDisplayName;
+    }
+
+    @DataBoundSetter
+    public void setDisplayName(int displayName) {
+        this.displayName = displayName;
+    }
+
+    @DataBoundSetter
+    public void setDisplayNameOffset(int displayNameOffset) {
+        this.displayNameOffset = displayNameOffset;
+    }
+
+    @DataBoundSetter
+    public void setInstallationName(final String installationName) {
+        this.installationName = installationName;
+    }
+
+    @DataBoundSetter
+    public void setParallelBuild(boolean parallelBuild) {
+        this.parallelBuild = parallelBuild;
+    }
+
+    @DataBoundSetter
+    public void setTimeout(long timeout) {
+        this.timeout = timeout;
+    }
+
 }

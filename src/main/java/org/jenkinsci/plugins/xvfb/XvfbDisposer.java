@@ -28,31 +28,30 @@
  */
 package org.jenkinsci.plugins.xvfb;
 
-import hudson.model.InvisibleAction;
+import hudson.FilePath;
+import hudson.Launcher;
+import hudson.model.TaskListener;
+import hudson.model.Run;
 
-import java.io.Serializable;
+import java.io.IOException;
 
-public class XvfbEnvironment extends InvisibleAction implements Serializable {
+import jenkins.tasks.SimpleBuildWrapper.Disposer;
 
-    private static final long serialVersionUID = 1L;
+public class XvfbDisposer extends Disposer {
 
-    /** Remote path of the frame buffer dir */
-    public final String       frameBufferDir;
+    private static final long    serialVersionUID = 1L;
 
-    /** Actual display name used */
-    public final int          displayName;
+    private final XvfbEnvironment xvfb;
 
-    /** The shutdownWithBuild indicator from the job configuration. */
-    public final boolean      shutdownWithBuild;
+    public XvfbDisposer(final XvfbEnvironment xvfb) {
+        this.xvfb = xvfb;
+    }
 
-    /** Random value identifying the Xvfb process. */
-    public String             cookie;
-
-    public XvfbEnvironment(final String cookie, final String frameBufferDir, final int displayName, final boolean shutdownWithBuild) {
-        this.cookie = cookie;
-        this.frameBufferDir = frameBufferDir;
-        this.displayName = displayName;
-        this.shutdownWithBuild = shutdownWithBuild;
+    @Override
+    public void tearDown(final Run<?, ?> run, final FilePath workspace, final Launcher launcher, final TaskListener listener) throws IOException, InterruptedException {
+        if (!xvfb.shutdownWithBuild) {
+            XvfbBuildWrapper.shutdownAndCleanup(xvfb, launcher, listener);
+        }
     }
 
 }
