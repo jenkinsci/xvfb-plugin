@@ -59,6 +59,8 @@ import hudson.util.FormValidation;
 import hudson.util.ProcessTree;
 import hudson.util.ProcessTree.OSProcess;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -375,6 +377,9 @@ public class XvfbBuildWrapper extends SimpleBuildWrapper {
 
     /** Let Xvfb pick display number */
     private boolean autoDisplayName   = false;
+    
+    /** If an old Xvfb process is found, kill it */
+    private boolean killExistingInstance = false;
 
     /** Run only on nodes labeled */
     private String  assignedLabels;
@@ -438,6 +443,10 @@ public class XvfbBuildWrapper extends SimpleBuildWrapper {
     public boolean isAutoDisplayName() {
         return autoDisplayName;
     }
+    
+    public boolean iskillExistingInstance() {
+        return killExistingInstance;
+    }
 
     public boolean isDebug() {
         return debug;
@@ -493,6 +502,25 @@ public class XvfbBuildWrapper extends SimpleBuildWrapper {
 
         final ArgumentListBuilder cmd = createCommandArguments(installation, frameBufferDir, displayNameUsed);
 
+        if (killExistingInstance) {
+            // Use ps to get Xvfb processes
+            try {
+                String line;
+                // pgrep found on every *NIX we could care about.
+                String pgrep = "pgrep -f " + cmd.toCommandArray()[0] + ".*:" + displayNameUsed;
+                Process p = Runtime.getRuntime().exec(pgrep);
+                BufferedReader input =
+                    new BufferedReader(new InputStreamReader(p.getInputStream()));
+                while ((line = input.readLine()) != null) {
+                    listener.getLogger().print(Messages.XvfbBuildWrapper_KillOldProcess(displayNameUsed, line));
+                    Process p2 = Runtime.getRuntime().exec("kill " + line);
+                }
+                input.close();
+            } catch (Exception err) {
+                err.printStackTrace();
+            }
+        }
+        
         final ProcStarter procStarter = launcher.launch().cmds(cmd);
 
         final ByteArrayOutputStream stdoutStream = new ByteArrayOutputStream();
@@ -607,6 +635,11 @@ public class XvfbBuildWrapper extends SimpleBuildWrapper {
     @DataBoundSetter
     public void setAutoDisplayName(boolean autoDisplayName) {
         this.autoDisplayName = autoDisplayName;
+    }
+    
+    @DataBoundSetter
+    public void setKillExistingInstance(boolean killExistingInstance) {
+        this.killExistingInstance = killExistingInstance;
     }
 
     @DataBoundSetter
