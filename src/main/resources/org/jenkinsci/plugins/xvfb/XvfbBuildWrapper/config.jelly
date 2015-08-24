@@ -82,6 +82,10 @@
         <f:entry title="${%Shutdown Xvfb with whole job, not just with the main build action}" field="shutdownWithBuild">
             <f:checkbox value="${instance.shutdownWithBuild}" />
         </f:entry>
+        
+        <f:entry title="${%Kill existing Xvfb process, if found}" field="killExistingInstance">
+            <f:checkbox value="${instance.killExistingInstance}" />
+        </f:entry>
     </f:advanced>
 
 </j:jelly>
