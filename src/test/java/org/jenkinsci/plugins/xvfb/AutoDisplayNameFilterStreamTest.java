@@ -31,10 +31,9 @@ package org.jenkinsci.plugins.xvfb;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 
-import junit.framework.Assert;
+import org.junit.Assert;
 
 import org.junit.Test;
-import org.junit.internal.runners.statements.Fail;
 
 public class AutoDisplayNameFilterStreamTest {
 
