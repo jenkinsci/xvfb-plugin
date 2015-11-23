@@ -28,27 +28,26 @@
  */
 package org.jenkinsci.plugins.xvfb;
 
-import hudson.EnvVars;
-import hudson.Extension;
-import hudson.model.EnvironmentSpecific;
-import hudson.model.TaskListener;
-import hudson.model.Hudson;
-import hudson.model.Node;
-import hudson.slaves.NodeSpecific;
-import hudson.tools.ToolDescriptor;
-import hudson.tools.ToolProperty;
-import hudson.tools.ToolInstallation;
-import hudson.util.FormValidation;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
-import net.sf.json.JSONObject;
-
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
+
+import hudson.EnvVars;
+import hudson.Extension;
+import hudson.model.EnvironmentSpecific;
+import hudson.model.Node;
+import hudson.model.TaskListener;
+import hudson.slaves.NodeSpecific;
+import hudson.tools.ToolDescriptor;
+import hudson.tools.ToolInstallation;
+import hudson.tools.ToolProperty;
+import hudson.util.FormValidation;
+import jenkins.model.Jenkins;
+import net.sf.json.JSONObject;
 
 @SuppressWarnings("serial")
 public class XvfbInstallation extends ToolInstallation implements NodeSpecific<XvfbInstallation>, EnvironmentSpecific<XvfbInstallation> {
@@ -67,7 +66,7 @@ public class XvfbInstallation extends ToolInstallation implements NodeSpecific<X
 
         public FormValidation doCheckHome(@QueryParameter final File value) {
             // this can be used to check the existence of a file on the server, so needs to be protected
-            if (!Hudson.getInstance().hasPermission(Hudson.ADMINISTER)) {
+            if (!Jenkins.getInstance().hasPermission(Jenkins.ADMINISTER)) {
                 return FormValidation.ok();
             }
 
@@ -103,7 +102,7 @@ public class XvfbInstallation extends ToolInstallation implements NodeSpecific<X
 
         @Override
         public XvfbInstallation[] getInstallations() {
-            return Hudson.getInstance().getDescriptorByType(XvfbBuildWrapper.XvfbBuildWrapperDescriptor.class).getInstallations();
+            return Jenkins.getInstance().getDescriptorByType(XvfbBuildWrapper.XvfbBuildWrapperDescriptor.class).getInstallations();
         }
 
         public DescriptorImpl getToolDescriptor() {
@@ -112,7 +111,7 @@ public class XvfbInstallation extends ToolInstallation implements NodeSpecific<X
 
         @Override
         public void setInstallations(final XvfbInstallation... installations) {
-            Hudson.getInstance().getDescriptorByType(XvfbBuildWrapper.XvfbBuildWrapperDescriptor.class).setInstallations(installations);
+            Jenkins.getInstance().getDescriptorByType(XvfbBuildWrapper.XvfbBuildWrapperDescriptor.class).setInstallations(installations);
         }
     }
 
