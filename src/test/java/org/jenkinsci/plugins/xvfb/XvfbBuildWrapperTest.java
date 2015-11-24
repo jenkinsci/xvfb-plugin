@@ -83,17 +83,17 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
     public void byDefaultBuildnumbersShouldBeBasedOnExecutorNumber() throws Exception {
         system.jenkins.setNumExecutors(3);
 
-        final XvfbBuildWrapper xvfb = new XvfbBuildWrapper();
+        final Xvfb xvfb = new Xvfb();
         xvfb.setInstallationName("working");
 
         final FreeStyleProject project1 = createFreeStyleJob("byDefaultBuildnumbersShouldBeBasedOnExecutorNumber1");
-        setupXvfbBuildWrapperOn(project1, xvfb);
+        setupXvfbOn(project1, xvfb);
 
         final FreeStyleProject project2 = createFreeStyleJob("byDefaultBuildnumbersShouldBeBasedOnExecutorNumber2");
-        setupXvfbBuildWrapperOn(project2, xvfb);
+        setupXvfbOn(project2, xvfb);
 
         final FreeStyleProject project3 = createFreeStyleJob("byDefaultBuildnumbersShouldBeBasedOnExecutorNumber3");
-        setupXvfbBuildWrapperOn(project3, xvfb);
+        setupXvfbOn(project3, xvfb);
 
         final QueueTaskFuture<FreeStyleBuild> build1Result = project1.scheduleBuild2(0);
         final QueueTaskFuture<FreeStyleBuild> build2Result = project2.scheduleBuild2(0);
@@ -120,12 +120,12 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
     public void inParallelBuildsBuildnumbersShouldBeOffsettedByComputerNumber() throws Exception {
         system.createSlave("label1", null);
 
-        final XvfbBuildWrapper xvfb = new XvfbBuildWrapper();
+        final Xvfb xvfb = new Xvfb();
         xvfb.setInstallationName("working");
         xvfb.setParallelBuild(true);
 
         final FreeStyleProject project = createFreeStyleJob("inParallelBuildsBuildnumbersShouldBeOffsettedByComputerNumber");
-        setupXvfbBuildWrapperOn(project, xvfb);
+        setupXvfbOn(project, xvfb);
         project.setAssignedLabel(Label.get("label1"));
 
         final FreeStyleBuild build = system.buildAndAssertSuccess(project);
@@ -133,14 +133,14 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
         assertThat("For parallel builds display name should be based on computer number 100 * computer index offset", build.getAction(XvfbEnvironment.class).displayName, is(101));
     }
 
-    private FreeStyleBuild runFreestyleJobWith(final XvfbBuildWrapper xvfb) throws IOException, Exception {
+    private FreeStyleBuild runFreestyleJobWith(final Xvfb xvfb) throws IOException, Exception {
         final FreeStyleProject project = createFreeStyleJob("xvfbFreestyleJob");
-        setupXvfbBuildWrapperOn(project, xvfb);
+        setupXvfbOn(project, xvfb);
 
         return system.buildAndAssertSuccess(project);
     }
 
-    private void setupXvfbBuildWrapperOn(final FreeStyleProject project, final XvfbBuildWrapper xvfb) {
+    private void setupXvfbOn(final FreeStyleProject project, final Xvfb xvfb) {
         final DescribableList<BuildWrapper, Descriptor<BuildWrapper>> buildWrappers = project.getBuildWrappersList();
 
         buildWrappers.add(xvfb);
@@ -154,11 +154,11 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
     @SuppressWarnings("unchecked")
     @Test
     public void shouldAbortIfInstallationIsNotFound() throws Exception {
-        final XvfbBuildWrapper xvfb = new XvfbBuildWrapper();
+        final Xvfb xvfb = new Xvfb();
         xvfb.setInstallationName("nonexistant");
 
         final FreeStyleProject project = createFreeStyleJob("shouldAbortIfInstallationIsNotFound");
-        setupXvfbBuildWrapperOn(project, xvfb);
+        setupXvfbOn(project, xvfb);
 
         final QueueTaskFuture<FreeStyleBuild> buildResult = project.scheduleBuild2(0);
 
@@ -174,10 +174,10 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
     @SuppressWarnings("unchecked")
     @Test
     public void shouldAbortIfNoInstallationIsDefined() throws Exception {
-        final XvfbBuildWrapper xvfb = new XvfbBuildWrapper();
+        final Xvfb xvfb = new Xvfb();
 
         final FreeStyleProject project = createFreeStyleJob("shouldAbortIfNoInstallationIsDefined");
-        setupXvfbBuildWrapperOn(project, xvfb);
+        setupXvfbOn(project, xvfb);
 
         final QueueTaskFuture<FreeStyleBuild> buildResult = project.scheduleBuild2(0);
 
@@ -194,12 +194,12 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
     @Test
     @Issue("JENKINS-18094")
     public void shouldAbortIfXvfbFailsToStart() throws Exception {
-        final XvfbBuildWrapper xvfb = new XvfbBuildWrapper();
+        final Xvfb xvfb = new Xvfb();
         xvfb.setInstallationName("failing");
         xvfb.setTimeout(10);
 
         final FreeStyleProject project = createFreeStyleJob("shouldAbortIfXvfbFailsToStart");
-        setupXvfbBuildWrapperOn(project, xvfb);
+        setupXvfbOn(project, xvfb);
 
         final QueueTaskFuture<FreeStyleBuild> buildResult = project.scheduleBuild2(0);
 
@@ -216,7 +216,7 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
 
     @Test
     public void shouldCreateCommandLineArguments() throws IOException {
-        final XvfbBuildWrapper xvfb = new XvfbBuildWrapper();
+        final Xvfb xvfb = new Xvfb();
         xvfb.setInstallationName("cmd");
         xvfb.setDisplayName(42);
 
@@ -225,12 +225,12 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
         final File tempDirRoot = tempDir.getRoot();
         final ArgumentListBuilder arguments = xvfb.createCommandArguments(installation, new FilePath(tempDirRoot), 42);
 
-        assertThat(arguments.toList(), contains("/usr/local/cmd-xvfb/Xvfb", ":42", "-screen", "0", XvfbBuildWrapper.DEFAULT_SCREEN, "-fbdir", tempDirRoot.getAbsolutePath()));
+        assertThat(arguments.toList(), contains("/usr/local/cmd-xvfb/Xvfb", ":42", "-screen", "0", Xvfb.DEFAULT_SCREEN, "-fbdir", tempDirRoot.getAbsolutePath()));
     }
 
     @Test
     public void shouldHonourSpecifiedDisplayNameOffset() throws Exception {
-        final XvfbBuildWrapper xvfb = new XvfbBuildWrapper();
+        final Xvfb xvfb = new Xvfb();
         xvfb.setInstallationName("working");
         xvfb.setDisplayNameOffset(100);
 
@@ -242,7 +242,7 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
     @Test
     @Issue("JENKINS-14483")
     public void shouldNotRunOnNonUnixNodes() throws IOException, InterruptedException {
-        final XvfbBuildWrapper xvfb = new XvfbBuildWrapper();
+        final Xvfb xvfb = new Xvfb();
 
         final LocalLauncher launcher = new Launcher.LocalLauncher(system.createTaskListener()) {
             @Override
@@ -266,11 +266,11 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
     public void shouldNotRunOnUnLabeledNodes() throws Exception {
         final FreeStyleProject project = createFreeStyleJob("shouldNotRunOnUnLabeledNodes");
 
-        final XvfbBuildWrapper xvfb = new XvfbBuildWrapper();
+        final Xvfb xvfb = new Xvfb();
         xvfb.setInstallationName("working");
         xvfb.setAssignedLabels("label1");
 
-        setupXvfbBuildWrapperOn(project, xvfb);
+        setupXvfbOn(project, xvfb);
 
         final FreeStyleBuild build = system.buildAndAssertSuccess(project);
         assertThat("Xvfb should not be started if label is not matched", build.getActions(XvfbEnvironment.class), empty());
@@ -280,7 +280,7 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
     @Test
     @Issue("JENKINS-13046")
     public void shouldPassOnAdditionalCommandLineArguments() throws Exception {
-        final XvfbBuildWrapper xvfb = new XvfbBuildWrapper();
+        final Xvfb xvfb = new Xvfb();
         xvfb.setInstallationName("working");
         xvfb.setDisplayName(42);
         xvfb.setAdditionalOptions("additional options");
@@ -294,7 +294,7 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
 
     @Test
     public void shouldPickupXvfbAutoDeterminedDisplayNumber() throws Exception {
-        final XvfbBuildWrapper xvfb = new XvfbBuildWrapper();
+        final Xvfb xvfb = new Xvfb();
         xvfb.setInstallationName("auto");
         xvfb.setAutoDisplayName(true);
 
@@ -313,11 +313,11 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
         final FreeStyleProject project = createFreeStyleJob("shouldRunOnLabeledNodes");
         project.setAssignedNode(node);
 
-        final XvfbBuildWrapper xvfb = new XvfbBuildWrapper();
+        final Xvfb xvfb = new Xvfb();
         xvfb.setInstallationName("working");
         xvfb.setAssignedLabels("label1");
 
-        setupXvfbBuildWrapperOn(project, xvfb);
+        setupXvfbOn(project, xvfb);
 
         final FreeStyleBuild build = system.buildAndAssertSuccess(project);
         assertThat("Xvfb should be started if label is matched", build.getActions(XvfbEnvironment.class), hasSize(1));
@@ -326,11 +326,11 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
     @Test
     @Issue("JENKINS-14483")
     public void shouldRunOnUnixNodes() throws Exception {
-        final XvfbBuildWrapper xvfb = new XvfbBuildWrapper();
+        final Xvfb xvfb = new Xvfb();
         xvfb.setInstallationName("working");
 
         final FreeStyleProject project = createFreeStyleJob("shouldRunOnUnixNodes");
-        setupXvfbBuildWrapperOn(project, xvfb);
+        setupXvfbOn(project, xvfb);
 
         final FreeStyleBuild build = system.buildAndAssertSuccess(project);
 
@@ -343,7 +343,7 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
 
     @Test
     public void shouldUseSpecifiedDisplayName() throws Exception {
-        final XvfbBuildWrapper xvfb = new XvfbBuildWrapper();
+        final Xvfb xvfb = new Xvfb();
         xvfb.setInstallationName("working");
         xvfb.setDisplayName(42);
 

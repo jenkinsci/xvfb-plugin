@@ -55,7 +55,7 @@ public class XvfbBuildWrapperWorkflowTest extends BaseXvfbTest {
 
 			@Override
 			public void evaluate() throws Throwable {
-				final XvfbBuildWrapper xvfb = new XvfbBuildWrapper();
+				final Xvfb xvfb = new Xvfb();
 
 				final CoreWrapperStep wrapperStep = new CoreWrapperStep(xvfb);
 
@@ -80,7 +80,7 @@ public class XvfbBuildWrapperWorkflowTest extends BaseXvfbTest {
 
 				workflowJob.setDefinition(new CpsFlowDefinition(""//
 						+ "node {\n"//
-						+ "  wrap([$class: 'XvfbBuildWrapper', installationName: 'working']) {\n"//
+						+ "  wrap([$class: 'Xvfb', installationName: 'working']) {\n"//
 						+ "    semaphore 'shouldAllowWorkflowRestarts'\n"//
 						+ "    sh 'echo DISPLAY=$DISPLAY'\n"//
 						+ "  }\n"//
@@ -125,7 +125,7 @@ public class XvfbBuildWrapperWorkflowTest extends BaseXvfbTest {
 
 				workflowJob.setDefinition(new CpsFlowDefinition(""//
 						+ "node {\n"//
-						+ "  wrap([$class: 'XvfbBuildWrapper', installationName: 'working']) {\n"//
+						+ "  wrap([$class: 'Xvfb', installationName: 'working']) {\n"//
 						+ "    sh 'echo DISPLAY=$DISPLAY'\n"//
 						+ "  }\n"//
 						+ "}", true));

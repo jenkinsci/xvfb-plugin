@@ -50,7 +50,7 @@ public class XvfbDisposer extends Disposer {
     @Override
     public void tearDown(final Run<?, ?> run, final FilePath workspace, final Launcher launcher, final TaskListener listener) throws IOException, InterruptedException {
         if (!xvfb.shutdownWithBuild) {
-            XvfbBuildWrapper.shutdownAndCleanup(xvfb, launcher, listener);
+            Xvfb.shutdownAndCleanup(xvfb, launcher, listener);
         }
     }
 

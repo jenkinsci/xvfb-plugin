@@ -28,37 +28,6 @@
  */
 package org.jenkinsci.plugins.xvfb;
 
-import hudson.CopyOnWrite;
-import hudson.EnvVars;
-import hudson.Extension;
-import hudson.FilePath;
-import hudson.Launcher;
-import hudson.Launcher.ProcStarter;
-import hudson.Proc;
-import hudson.Util;
-import hudson.XmlFile;
-import hudson.model.AutoCompletionCandidates;
-import hudson.model.TaskListener;
-import hudson.model.AbstractProject;
-import hudson.model.Computer;
-import hudson.model.Executor;
-import hudson.model.Label;
-import hudson.model.Node;
-import hudson.model.Run;
-import hudson.model.Run.RunnerAbortedException;
-import hudson.model.labels.LabelAtom;
-import hudson.model.listeners.RunListener;
-import hudson.remoting.Channel;
-import hudson.remoting.ChannelClosedException;
-import hudson.slaves.ComputerListener;
-import hudson.tasks.BuildWrapper;
-import hudson.tasks.BuildWrapperDescriptor;
-import hudson.tools.ToolInstallation;
-import hudson.util.ArgumentListBuilder;
-import hudson.util.FormValidation;
-import hudson.util.ProcessTree;
-import hudson.util.ProcessTree.OSProcess;
-
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -75,20 +44,55 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import jenkins.model.Jenkins;
-import jenkins.security.MasterToSlaveCallable;
-import jenkins.tasks.SimpleBuildWrapper;
-import net.sf.json.JSONObject;
-
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
-import antlr.ANTLRException;
+import com.thoughtworks.xstream.XStream;
 
-public class XvfbBuildWrapper extends SimpleBuildWrapper {
+import antlr.ANTLRException;
+import hudson.CopyOnWrite;
+import hudson.EnvVars;
+import hudson.Extension;
+import hudson.FilePath;
+import hudson.Launcher;
+import hudson.Launcher.ProcStarter;
+import hudson.Proc;
+import hudson.Util;
+import hudson.XmlFile;
+import hudson.init.InitMilestone;
+import hudson.init.Initializer;
+import hudson.model.AbstractProject;
+import hudson.model.AutoCompletionCandidates;
+import hudson.model.Computer;
+import hudson.model.Executor;
+import hudson.model.Items;
+import hudson.model.Label;
+import hudson.model.Node;
+import hudson.model.Run;
+import hudson.model.TaskListener;
+import hudson.model.Run.RunnerAbortedException;
+import hudson.model.labels.LabelAtom;
+import hudson.model.listeners.RunListener;
+import hudson.remoting.Channel;
+import hudson.remoting.ChannelClosedException;
+import hudson.slaves.ComputerListener;
+import hudson.tasks.BuildWrapper;
+import hudson.tasks.BuildWrapperDescriptor;
+import hudson.tools.ToolInstallation;
+import hudson.util.ArgumentListBuilder;
+import hudson.util.FormValidation;
+import hudson.util.ProcessTree;
+import hudson.util.ProcessTree.OSProcess;
+import hudson.util.XStream2;
+import jenkins.model.Jenkins;
+import jenkins.security.MasterToSlaveCallable;
+import jenkins.tasks.SimpleBuildWrapper;
+import net.sf.json.JSONObject;
+
+public class Xvfb extends SimpleBuildWrapper {
 
     private static final String JENKINS_XVFB_COOKIE = "_JENKINS_XVFB_COOKIE";
 
@@ -98,6 +102,20 @@ public class XvfbBuildWrapper extends SimpleBuildWrapper {
         /** Xvfb installations, this descriptor persists all installations configured. */
         @CopyOnWrite
         private volatile XvfbInstallation[] installations = new XvfbInstallation[0];
+
+        @Initializer(before = InitMilestone.PLUGINS_LISTED)
+        public static void setupBackwardCompatibility() {
+            setupBackwardCompatibilityOn(Items.XSTREAM2);
+            final XStream xstream = new XmlFile(new File("mapping")).getXStream();
+            if (xstream instanceof XStream2) {
+                setupBackwardCompatibilityOn((XStream2) xstream);
+            }
+        }
+
+        private static void setupBackwardCompatibilityOn(XStream2 instance) {
+            instance.addCompatibilityAlias("org.jenkinsci.plugins.xvfb.XvfbBuildWrapper", Xvfb.class);
+            instance.addCompatibilityAlias("org.jenkinsci.plugins.xvfb.XvfbBuildWrapper$XvfbBuildWrapperDescriptor", Xvfb.XvfbBuildWrapperDescriptor.class);
+        }
 
         public XvfbBuildWrapperDescriptor() {
             load();
@@ -113,6 +131,18 @@ public class XvfbBuildWrapper extends SimpleBuildWrapper {
 
         public FormValidation doCheckTimeout(@QueryParameter final String value) throws IOException {
             return validateOptionalNonNegativeInteger(value);
+        }
+
+        @Override
+        protected XmlFile getConfigFile() {
+            final File rootDir = Jenkins.getInstance().getRootDir();
+
+            final File legacyConfiguration = new File(rootDir, "org.jenkinsci.plugins.xvfb.XvfbBuildWrapper.xml");
+            if (legacyConfiguration.exists()) {
+                legacyConfiguration.renameTo(new File(rootDir, getId() + ".xml"));
+            }
+
+            return super.getConfigFile();
         }
 
         @Override
@@ -135,7 +165,7 @@ public class XvfbBuildWrapper extends SimpleBuildWrapper {
 
         @Override
         public BuildWrapper newInstance(final StaplerRequest req, final JSONObject formData) throws hudson.model.Descriptor.FormException {
-            return req.bindJSON(XvfbBuildWrapper.class, formData);
+            return req.bindJSON(Xvfb.class, formData);
         }
 
         public void setInstallations(final XvfbInstallation... installations) {
@@ -383,7 +413,7 @@ public class XvfbBuildWrapper extends SimpleBuildWrapper {
     private boolean parallelBuild     = false;
 
     @DataBoundConstructor
-    public XvfbBuildWrapper() {
+    public Xvfb() {
     }
 
     public String getAdditionalOptions() {

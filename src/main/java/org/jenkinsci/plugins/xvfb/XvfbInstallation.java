@@ -102,7 +102,7 @@ public class XvfbInstallation extends ToolInstallation implements NodeSpecific<X
 
         @Override
         public XvfbInstallation[] getInstallations() {
-            return Jenkins.getInstance().getDescriptorByType(XvfbBuildWrapper.XvfbBuildWrapperDescriptor.class).getInstallations();
+            return Jenkins.getInstance().getDescriptorByType(Xvfb.XvfbBuildWrapperDescriptor.class).getInstallations();
         }
 
         public DescriptorImpl getToolDescriptor() {
@@ -111,7 +111,7 @@ public class XvfbInstallation extends ToolInstallation implements NodeSpecific<X
 
         @Override
         public void setInstallations(final XvfbInstallation... installations) {
-            Jenkins.getInstance().getDescriptorByType(XvfbBuildWrapper.XvfbBuildWrapperDescriptor.class).setInstallations(installations);
+            Jenkins.getInstance().getDescriptorByType(Xvfb.XvfbBuildWrapperDescriptor.class).setInstallations(installations);
         }
     }
 
