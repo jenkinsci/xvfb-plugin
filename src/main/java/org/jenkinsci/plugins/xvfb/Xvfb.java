@@ -50,6 +50,7 @@ import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
+import com.google.common.base.Optional;
 import com.thoughtworks.xstream.XStream;
 
 import antlr.ANTLRException;
@@ -438,8 +439,18 @@ public class Xvfb extends SimpleBuildWrapper {
     }
 
     public XvfbInstallation getInstallation(final EnvVars env, final Node node, final TaskListener listener) {
-        for (final XvfbInstallation installation : getDescriptor().getInstallations()) {
-            if (installationName != null && installationName.equals(installation.getName())) {
+        final XvfbInstallation[] installations = getDescriptor().getInstallations();
+
+        // if there is only one installation and no name specified use that
+        if (installationName == null && installations.length == 1) {
+            return installations[0];
+        }
+
+        // if no installation name specified use 'default'
+        final String installationNameToUse = Optional.fromNullable(installationName).or("default");
+
+        for (final XvfbInstallation installation : installations) {
+            if (installationNameToUse.equals(installation.getName())) {
                 try {
                     return installation.forEnvironment(env).forNode(node, TaskListener.NULL);
                 } catch (final IOException e) {

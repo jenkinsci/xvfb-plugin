@@ -30,7 +30,11 @@ package org.jenkinsci.plugins.xvfb;
 
 import hudson.DescriptorExtensionList;
 import hudson.model.Descriptor;
+import hudson.model.FreeStyleBuild;
+import hudson.model.FreeStyleProject;
+import hudson.tasks.BuildWrapper;
 import hudson.tools.ToolInstallation;
+import hudson.util.DescribableList;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -41,13 +45,14 @@ import java.io.InputStream;
 import jenkins.model.Jenkins;
 
 import org.junit.rules.TemporaryFolder;
+import org.jvnet.hudson.test.JenkinsRule;
 
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
 
 public abstract class BaseXvfbTest {
 	
-	private XvfbInstallation createInstallation(final String nameAndPath, TemporaryFolder tempDir) throws IOException,
+	protected static XvfbInstallation createInstallation(final String nameAndPath, TemporaryFolder tempDir) throws IOException,
 			FileNotFoundException {
 		final File xvfbDir = tempDir.newFolder(nameAndPath);
 		final File xvfb = new File(xvfbDir, "Xvfb");
@@ -78,4 +83,20 @@ public abstract class BaseXvfbTest {
 		toolInstallations.add(installations);
 	}
 
+    protected static FreeStyleProject createFreeStyleJob(final JenkinsRule system, final String name) throws IOException {
+        return system.jenkins.createProject(FreeStyleProject.class, name);
+    }
+
+    protected static FreeStyleBuild runFreestyleJobWith(final JenkinsRule system, final Xvfb xvfb) throws IOException, Exception {
+        final FreeStyleProject project = createFreeStyleJob(system, "xvfbFreestyleJob");
+        setupXvfbOn(project, xvfb);
+
+        return system.buildAndAssertSuccess(project);
+    }
+
+    protected static void setupXvfbOn(final FreeStyleProject project, final Xvfb xvfb) {
+        final DescribableList<BuildWrapper, Descriptor<BuildWrapper>> buildWrappers = project.getBuildWrappersList();
+
+        buildWrappers.add(xvfb);
+    }
 }
