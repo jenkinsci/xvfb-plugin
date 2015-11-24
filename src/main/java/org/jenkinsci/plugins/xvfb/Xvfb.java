@@ -238,21 +238,26 @@ public class Xvfb extends SimpleBuildWrapper {
     @SuppressWarnings("rawtypes")
     @Extension
     public static final RunListener<Run>                    xvfbShutdownListener = new RunListener<Run>() {
-                                                                                     @Override
-                                                                                     public void onCompleted(final Run r, final TaskListener listener) {
-                                                                                         //			final XvfbEnvironment xvfbEnvironment = r.getAction(XvfbEnvironment.class);
-                                                                                         //
-                                                                                         //			if (xvfbEnvironment != null && xvfbEnvironment.isShutdownWithBuild()) {
-                                                                                         //				try {
-                                                                                         //					shutdownAndCleanup(xvfbEnvironment, listener);
-                                                                                         //				} catch (final IOException e) {
-                                                                                         //					throw new RuntimeException(e);
-                                                                                         //				} catch (final InterruptedException e) {
-                                                                                         //					throw new RuntimeException(e);
-                                                                                         //				}
-                                                                                         //			}
-                                                                                     }
-                                                                                 };
+        @Override
+        public void onCompleted(final Run r, final TaskListener listener) {
+            final XvfbEnvironment xvfbEnvironment = r.getAction(XvfbEnvironment.class);
+
+            if (xvfbEnvironment != null && xvfbEnvironment.shutdownWithBuild) {
+                try {
+                    final Executor executor = r.getExecutor();
+                    final Computer computer = executor.getOwner();
+                    final Node node = computer.getNode();
+                    final Launcher launcher = node.createLauncher(listener);
+
+                    Xvfb.shutdownAndCleanup(xvfbEnvironment, launcher, listener);
+                } catch (final IOException e) {
+                    throw new RuntimeException(e);
+                } catch (final InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+    };
 
     private static final Map<String, List<XvfbEnvironment>> zombies              = createOrLoadZombiesMap();
 
@@ -675,4 +680,8 @@ public class Xvfb extends SimpleBuildWrapper {
         this.timeout = timeout;
     }
 
+    @DataBoundSetter
+    public void setShutdownWithBuild(boolean shutdownWithBuild) {
+        this.shutdownWithBuild = shutdownWithBuild;
+    }
 }

@@ -28,6 +28,7 @@
  */
 package org.jenkinsci.plugins.xvfb;
 
+import static com.google.common.collect.Iterables.filter;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -39,20 +40,6 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.core.IsNot.not;
-import hudson.FilePath;
-import hudson.Launcher;
-import hudson.Launcher.LocalLauncher;
-import hudson.model.FreeStyleBuild;
-import hudson.model.Result;
-import hudson.model.StreamBuildListener;
-import hudson.model.AbstractBuild;
-import hudson.model.Computer;
-import hudson.model.FreeStyleProject;
-import hudson.model.Label;
-import hudson.model.Node;
-import hudson.model.queue.QueueTaskFuture;
-import hudson.tasks.BuildWrapper.Environment;
-import hudson.util.ArgumentListBuilder;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -61,12 +48,36 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.List;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
+
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.Iterables;
+
+import hudson.FilePath;
+import hudson.Launcher;
+import hudson.Launcher.LocalLauncher;
+import hudson.model.AbstractBuild;
+import hudson.model.Computer;
+import hudson.model.FreeStyleBuild;
+import hudson.model.FreeStyleProject;
+import hudson.model.Label;
+import hudson.model.Node;
+import hudson.model.Result;
+import hudson.model.StreamBuildListener;
+import hudson.model.queue.QueueTaskFuture;
+import hudson.tasks.BuildWrapper.Environment;
+import hudson.util.ArgumentListBuilder;
+import hudson.util.ProcessTree;
+import hudson.util.ProcessTree.OSProcess;
 
 public class XvfbBuildWrapperTest extends BaseXvfbTest {
 
@@ -330,5 +341,36 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
         final FreeStyleBuild build = runFreestyleJobWith(system, xvfb);
 
         assertThat("DISPLAY environment variable should be 42, as is specified by configuration", build.getAction(XvfbEnvironment.class).displayName, is(42));
+    }
+
+    @Test
+    public void shouldShutdownWithBuild() throws Exception {
+        final Xvfb xvfb = new Xvfb();
+        xvfb.setInstallationName("working");
+        xvfb.setShutdownWithBuild(true);
+
+        runFreestyleJobWith(system, xvfb);
+
+    }
+
+    @After
+    public void shouldNotLeakProcesses() throws Exception {
+        final String testXvfbDir = tempDir.getRoot().getName();
+
+        Iterable<Integer> leaks = Iterables.transform(filter(ProcessTree.get(), new Predicate<OSProcess>() {
+            @Override
+            public boolean apply(OSProcess process) {
+                final List<String> arguments = process.getArguments();
+                return Iterables.any(arguments, Predicates.containsPattern(testXvfbDir + "/\\w+/Xvfb"));
+            }
+        }), new Function<OSProcess, Integer>() {
+
+            @Override
+            public Integer apply(OSProcess process) {
+                return process.getPid();
+            }            
+        });
+
+        assertThat("Found leaked processes, PIDs: " + Joiner.on(',').join(leaks), leaks.iterator().hasNext(), is(false));
     }
 }
