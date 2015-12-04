@@ -684,4 +684,9 @@ public class Xvfb extends SimpleBuildWrapper {
     public void setShutdownWithBuild(boolean shutdownWithBuild) {
         this.shutdownWithBuild = shutdownWithBuild;
     }
+    
+    @DataBoundSetter
+    public void setScreen(String screen) {
+        this.screen = screen;
+    }
 }
