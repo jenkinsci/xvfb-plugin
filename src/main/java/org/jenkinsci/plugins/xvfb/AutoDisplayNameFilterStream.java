@@ -38,29 +38,35 @@ public class AutoDisplayNameFilterStream extends FilterOutputStream {
 
     private final Semaphore received = new Semaphore(1);
 
-    private final char[]    lastLine = new char[1024];
+    private final char[] lastLine = new char[1024];
 
-    private int             idx;
+    private int idx;
 
-    private int             displayNumber;
+    private int displayNumber;
 
-    private long            waitTime;
+    private final long waitTime;
 
     protected AutoDisplayNameFilterStream(final OutputStream decorated) {
         this(decorated, 10);
     }
 
-    protected AutoDisplayNameFilterStream(final OutputStream decorated, int waitTime) {
+    protected AutoDisplayNameFilterStream(final OutputStream decorated, final int waitTime) {
         super(decorated);
 
         this.waitTime = waitTime;
 
         try {
             received.acquire();
-        } catch (InterruptedException e) {
+        } catch (final InterruptedException e) {
             throw new IllegalStateException("Unable to acquire semaphore upon creation", e);
         }
 
+    }
+
+    @Override
+    public void close() throws IOException {
+        received.release();
+        super.close();
     }
 
     public int getDisplayNumber() throws InterruptedException {
@@ -89,11 +95,5 @@ public class AutoDisplayNameFilterStream extends FilterOutputStream {
         }
 
         super.write(ch);
-    }
-
-    @Override
-    public void close() throws IOException {
-        received.release();
-        super.close();
     }
 }

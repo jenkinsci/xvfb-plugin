@@ -28,18 +28,17 @@
  */
 package org.jenkinsci.plugins.xvfb;
 
-import hudson.FilePath;
-import hudson.Launcher;
-import hudson.model.TaskListener;
-import hudson.model.Run;
-
 import java.io.IOException;
 
+import hudson.FilePath;
+import hudson.Launcher;
+import hudson.model.Run;
+import hudson.model.TaskListener;
 import jenkins.tasks.SimpleBuildWrapper.Disposer;
 
 public class XvfbDisposer extends Disposer {
 
-    private static final long    serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
 
     private final XvfbEnvironment xvfb;
 

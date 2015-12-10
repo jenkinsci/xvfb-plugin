@@ -82,7 +82,7 @@ import hudson.util.ProcessTree.OSProcess;
 public class XvfbBuildWrapperTest extends BaseXvfbTest {
 
     @Rule
-    public JenkinsRule     system  = new JenkinsRule();
+    public JenkinsRule system = new JenkinsRule();
 
     @Rule
     public TemporaryFolder tempDir = new TemporaryFolder();
@@ -230,6 +230,27 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
         assertThat("DISPLAY environment variable should be larger than 100 as is specified by offset of 100", build.getAction(XvfbEnvironment.class).displayName, greaterThanOrEqualTo(100));
     }
 
+    @After
+    public void shouldNotLeakProcesses() throws Exception {
+        final String testXvfbDir = tempDir.getRoot().getName();
+
+        final Iterable<Integer> leaks = Iterables.transform(filter(ProcessTree.get(), new Predicate<OSProcess>() {
+            @Override
+            public boolean apply(final OSProcess process) {
+                final List<String> arguments = process.getArguments();
+                return Iterables.any(arguments, Predicates.containsPattern(testXvfbDir + "/\\w+/Xvfb"));
+            }
+        }), new Function<OSProcess, Integer>() {
+
+            @Override
+            public Integer apply(final OSProcess process) {
+                return process.getPid();
+            }
+        });
+
+        assertThat("Found leaked processes, PIDs: " + Joiner.on(',').join(leaks), leaks.iterator().hasNext(), is(false));
+    }
+
     @Test
     @Issue("JENKINS-14483")
     public void shouldNotRunOnNonUnixNodes() throws IOException, InterruptedException {
@@ -333,17 +354,6 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
     }
 
     @Test
-    public void shouldUseSpecifiedDisplayName() throws Exception {
-        final Xvfb xvfb = new Xvfb();
-        xvfb.setInstallationName("working");
-        xvfb.setDisplayName(42);
-
-        final FreeStyleBuild build = runFreestyleJobWith(system, xvfb);
-
-        assertThat("DISPLAY environment variable should be 42, as is specified by configuration", build.getAction(XvfbEnvironment.class).displayName, is(42));
-    }
-
-    @Test
     public void shouldShutdownWithBuild() throws Exception {
         final Xvfb xvfb = new Xvfb();
         xvfb.setInstallationName("working");
@@ -353,24 +363,14 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
 
     }
 
-    @After
-    public void shouldNotLeakProcesses() throws Exception {
-        final String testXvfbDir = tempDir.getRoot().getName();
+    @Test
+    public void shouldUseSpecifiedDisplayName() throws Exception {
+        final Xvfb xvfb = new Xvfb();
+        xvfb.setInstallationName("working");
+        xvfb.setDisplayName(42);
 
-        Iterable<Integer> leaks = Iterables.transform(filter(ProcessTree.get(), new Predicate<OSProcess>() {
-            @Override
-            public boolean apply(OSProcess process) {
-                final List<String> arguments = process.getArguments();
-                return Iterables.any(arguments, Predicates.containsPattern(testXvfbDir + "/\\w+/Xvfb"));
-            }
-        }), new Function<OSProcess, Integer>() {
+        final FreeStyleBuild build = runFreestyleJobWith(system, xvfb);
 
-            @Override
-            public Integer apply(OSProcess process) {
-                return process.getPid();
-            }            
-        });
-
-        assertThat("Found leaked processes, PIDs: " + Joiner.on(',').join(leaks), leaks.iterator().hasNext(), is(false));
+        assertThat("DISPLAY environment variable should be 42, as is specified by configuration", build.getAction(XvfbEnvironment.class).displayName, is(42));
     }
 }

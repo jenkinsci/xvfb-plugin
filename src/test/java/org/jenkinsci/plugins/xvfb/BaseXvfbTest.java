@@ -28,21 +28,11 @@
  */
 package org.jenkinsci.plugins.xvfb;
 
-import hudson.DescriptorExtensionList;
-import hudson.model.Descriptor;
-import hudson.model.FreeStyleBuild;
-import hudson.model.FreeStyleProject;
-import hudson.tasks.BuildWrapper;
-import hudson.tools.ToolInstallation;
-import hudson.util.DescribableList;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-
-import jenkins.model.Jenkins;
 
 import org.junit.rules.TemporaryFolder;
 import org.jvnet.hudson.test.JenkinsRule;
@@ -50,41 +40,38 @@ import org.jvnet.hudson.test.JenkinsRule;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
 
+import hudson.DescriptorExtensionList;
+import hudson.model.Descriptor;
+import hudson.model.FreeStyleBuild;
+import hudson.model.FreeStyleProject;
+import hudson.tasks.BuildWrapper;
+import hudson.tools.ToolInstallation;
+import hudson.util.DescribableList;
+import jenkins.model.Jenkins;
+
 public abstract class BaseXvfbTest {
-	
-	protected static XvfbInstallation createInstallation(final String nameAndPath, TemporaryFolder tempDir) throws IOException,
-			FileNotFoundException {
-		final File xvfbDir = tempDir.newFolder(nameAndPath);
-		final File xvfb = new File(xvfbDir, "Xvfb");
-
-		InputStream xvfbFrom = null;
-		FileOutputStream xvfbTo = null;
-		try {
-			xvfbFrom = XvfbBuildWrapperTest.class.getResourceAsStream("/" + nameAndPath + "/Xvfb");
-			xvfbTo = new FileOutputStream(xvfb);
-			ByteStreams.copy(xvfbFrom, xvfbTo);
-		} finally {
-			Closeables.closeQuietly(xvfbFrom);
-			Closeables.closeQuietly(xvfbTo);
-		}
-		xvfb.setExecutable(true);
-
-		return new XvfbInstallation(nameAndPath, xvfbDir.getAbsolutePath(), null);
-	}
-
-	protected void setupXvfbInstallations(Jenkins jenkins, TemporaryFolder tempDir) throws IOException {
-		final XvfbInstallation.DescriptorImpl installations = new XvfbInstallation.DescriptorImpl();
-
-		installations.setInstallations(createInstallation("working", tempDir), createInstallation("failing", tempDir),
-				createInstallation("auto", tempDir));
-
-		final DescriptorExtensionList<ToolInstallation, Descriptor<ToolInstallation>> toolInstallations = jenkins
-				.getDescriptorList(ToolInstallation.class);
-		toolInstallations.add(installations);
-	}
 
     protected static FreeStyleProject createFreeStyleJob(final JenkinsRule system, final String name) throws IOException {
         return system.jenkins.createProject(FreeStyleProject.class, name);
+    }
+
+    protected static XvfbInstallation createInstallation(final String nameAndPath, final TemporaryFolder tempDir) throws IOException, FileNotFoundException {
+        final File xvfbDir = tempDir.newFolder(nameAndPath);
+        final File xvfb = new File(xvfbDir, "Xvfb");
+
+        InputStream xvfbFrom = null;
+        FileOutputStream xvfbTo = null;
+        try {
+            xvfbFrom = XvfbBuildWrapperTest.class.getResourceAsStream("/" + nameAndPath + "/Xvfb");
+            xvfbTo = new FileOutputStream(xvfb);
+            ByteStreams.copy(xvfbFrom, xvfbTo);
+        } finally {
+            Closeables.closeQuietly(xvfbFrom);
+            Closeables.closeQuietly(xvfbTo);
+        }
+        xvfb.setExecutable(true);
+
+        return new XvfbInstallation(nameAndPath, xvfbDir.getAbsolutePath(), null);
     }
 
     protected static FreeStyleBuild runFreestyleJobWith(final JenkinsRule system, final Xvfb xvfb) throws IOException, Exception {
@@ -98,5 +85,14 @@ public abstract class BaseXvfbTest {
         final DescribableList<BuildWrapper, Descriptor<BuildWrapper>> buildWrappers = project.getBuildWrappersList();
 
         buildWrappers.add(xvfb);
+    }
+
+    protected void setupXvfbInstallations(final Jenkins jenkins, final TemporaryFolder tempDir) throws IOException {
+        final XvfbInstallation.DescriptorImpl installations = new XvfbInstallation.DescriptorImpl();
+
+        installations.setInstallations(createInstallation("working", tempDir), createInstallation("failing", tempDir), createInstallation("auto", tempDir));
+
+        final DescriptorExtensionList<ToolInstallation, Descriptor<ToolInstallation>> toolInstallations = jenkins.getDescriptorList(ToolInstallation.class);
+        toolInstallations.add(installations);
     }
 }

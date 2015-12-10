@@ -64,6 +64,7 @@ public class XvfbInstallation extends ToolInstallation implements NodeSpecific<X
             return true;
         }
 
+        @Override
         public FormValidation doCheckHome(@QueryParameter final File value) {
             // this can be used to check the existence of a file on the server, so needs to be protected
             if (!Jenkins.getInstance().hasPermission(Jenkins.ADMINISTER)) {
@@ -91,6 +92,7 @@ public class XvfbInstallation extends ToolInstallation implements NodeSpecific<X
             return FormValidation.ok();
         }
 
+        @Override
         public FormValidation doCheckName(@QueryParameter final String value) {
             return FormValidation.validateRequired(value);
         }
@@ -120,10 +122,12 @@ public class XvfbInstallation extends ToolInstallation implements NodeSpecific<X
         super(name, home, properties);
     }
 
+    @Override
     public XvfbInstallation forEnvironment(final EnvVars environment) {
         return new XvfbInstallation(getName(), environment.expand(getHome()), getProperties().toList());
     }
 
+    @Override
     public XvfbInstallation forNode(final Node node, final TaskListener log) throws IOException, InterruptedException {
         return new XvfbInstallation(getName(), translateFor(node, log), getProperties().toList());
     }

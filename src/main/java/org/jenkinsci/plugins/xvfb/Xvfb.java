@@ -95,14 +95,19 @@ import net.sf.json.JSONObject;
 
 public class Xvfb extends SimpleBuildWrapper {
 
-    private static final String JENKINS_XVFB_COOKIE = "_JENKINS_XVFB_COOKIE";
+    private static final class ComputerNameComparator implements Comparator<Computer> {
+
+        private static final ComputerNameComparator INSTANCE = new ComputerNameComparator();
+
+        @Override
+        public int compare(final Computer left, final Computer right) {
+            return left.getName().compareTo(right.getName());
+        }
+
+    }
 
     @Extension(ordinal = Double.MAX_VALUE)
     public static class XvfbBuildWrapperDescriptor extends BuildWrapperDescriptor {
-
-        /** Xvfb installations, this descriptor persists all installations configured. */
-        @CopyOnWrite
-        private volatile XvfbInstallation[] installations = new XvfbInstallation[0];
 
         @Initializer(before = InitMilestone.PLUGINS_LISTED)
         public static void setupBackwardCompatibility() {
@@ -113,13 +118,59 @@ public class Xvfb extends SimpleBuildWrapper {
             }
         }
 
-        private static void setupBackwardCompatibilityOn(XStream2 instance) {
+        private static void setupBackwardCompatibilityOn(final XStream2 instance) {
             instance.addCompatibilityAlias("org.jenkinsci.plugins.xvfb.XvfbBuildWrapper", Xvfb.class);
             instance.addCompatibilityAlias("org.jenkinsci.plugins.xvfb.XvfbBuildWrapper$XvfbBuildWrapperDescriptor", Xvfb.XvfbBuildWrapperDescriptor.class);
         }
 
+        /** Xvfb installations, this descriptor persists all installations configured. */
+        @CopyOnWrite
+        private volatile XvfbInstallation[] installations = new XvfbInstallation[0];
+
         public XvfbBuildWrapperDescriptor() {
             load();
+        }
+
+        /** adopted from @see hudson.model.AbstractProject.AbstractProjectDescriptor#doAutoCompleteAssignedLabels */
+        public AutoCompletionCandidates doAutoCompleteAssignedLabels(@AncestorInPath final AbstractProject<?, ?> project, @QueryParameter final String value) {
+            final AutoCompletionCandidates candidates = new AutoCompletionCandidates();
+            final Set<Label> labels = Jenkins.getInstance().getLabels();
+
+            for (final Label label : labels) {
+                if (value == null || label.getName().startsWith(value)) {
+                    candidates.add(label.getName());
+                }
+            }
+
+            return candidates;
+        }
+
+        /** adopted from @see hudson.model.AbstractProject.AbstractProjectDescriptor#doCheckAssignedLabels */
+        public FormValidation doCheckAssignedLabels(@AncestorInPath final AbstractProject<?, ?> project, @QueryParameter final String value) {
+            if (Util.fixEmpty(value) == null) {
+                return FormValidation.ok();
+            }
+
+            try {
+                Label.parseExpression(value);
+            } catch (final ANTLRException e) {
+                return FormValidation.error(e, Messages.XvfbBuildWrapper_AssignedLabelString_InvalidBooleanExpression(e.getMessage()));
+            }
+
+            final Jenkins jenkins = Jenkins.getInstance();
+            final Label label = jenkins.getLabel(value);
+
+            if (label.isEmpty()) {
+                for (final LabelAtom labelAtom : label.listAtoms()) {
+                    if (labelAtom.isEmpty()) {
+                        final LabelAtom nearest = LabelAtom.findNearest(labelAtom.getName());
+                        return FormValidation.warning(Messages.XvfbBuildWrapper_AssignedLabelString_NoMatch_DidYouMean(labelAtom.getName(), nearest.getDisplayName()));
+                    }
+                }
+                return FormValidation.warning(Messages.XvfbBuildWrapper_AssignedLabelString_NoMatch());
+            }
+
+            return FormValidation.okWithMarkup(Messages.XvfbBuildWrapper_LabelLink(jenkins.getRootUrl(), label.getUrl(), label.getNodes().size() + label.getClouds().size()));
         }
 
         public FormValidation doCheckDisplayName(@QueryParameter final String value) throws IOException {
@@ -189,55 +240,15 @@ public class Xvfb extends SimpleBuildWrapper {
 
             return FormValidation.validatePositiveInteger(value);
         }
-
-        /** adopted from @see hudson.model.AbstractProject.AbstractProjectDescriptor#doAutoCompleteAssignedLabels */
-        public AutoCompletionCandidates doAutoCompleteAssignedLabels(@AncestorInPath AbstractProject<?, ?> project, @QueryParameter String value) {
-            final AutoCompletionCandidates candidates = new AutoCompletionCandidates();
-            final Set<Label> labels = Jenkins.getInstance().getLabels();
-
-            for (Label label : labels) {
-                if (value == null || label.getName().startsWith(value)) {
-                    candidates.add(label.getName());
-                }
-            }
-
-            return candidates;
-        }
-
-        /** adopted from @see hudson.model.AbstractProject.AbstractProjectDescriptor#doCheckAssignedLabels */
-        public FormValidation doCheckAssignedLabels(@AncestorInPath AbstractProject<?, ?> project, @QueryParameter String value) {
-            if (Util.fixEmpty(value) == null) {
-                return FormValidation.ok();
-            }
-
-            try {
-                Label.parseExpression(value);
-            } catch (ANTLRException e) {
-                return FormValidation.error(e, Messages.XvfbBuildWrapper_AssignedLabelString_InvalidBooleanExpression(e.getMessage()));
-            }
-
-            final Jenkins jenkins = Jenkins.getInstance();
-            final Label label = jenkins.getLabel(value);
-
-            if (label.isEmpty()) {
-                for (LabelAtom labelAtom : label.listAtoms()) {
-                    if (labelAtom.isEmpty()) {
-                        LabelAtom nearest = LabelAtom.findNearest(labelAtom.getName());
-                        return FormValidation.warning(Messages.XvfbBuildWrapper_AssignedLabelString_NoMatch_DidYouMean(labelAtom.getName(), nearest.getDisplayName()));
-                    }
-                }
-                return FormValidation.warning(Messages.XvfbBuildWrapper_AssignedLabelString_NoMatch());
-            }
-
-            return FormValidation.okWithMarkup(Messages.XvfbBuildWrapper_LabelLink(jenkins.getRootUrl(), label.getUrl(), label.getNodes().size() + label.getClouds().size()));
-        }
     }
 
-    private static final String                             STDERR_FD            = "2";
+    private static final String JENKINS_XVFB_COOKIE = "_JENKINS_XVFB_COOKIE";
+
+    private static final String STDERR_FD = "2";
 
     @SuppressWarnings("rawtypes")
     @Extension
-    public static final RunListener<Run>                    xvfbShutdownListener = new RunListener<Run>() {
+    public static final RunListener<Run> xvfbShutdownListener = new RunListener<Run>() {
         @Override
         public void onCompleted(final Run r, final TaskListener listener) {
             final XvfbEnvironment xvfbEnvironment = r.getAction(XvfbEnvironment.class);
@@ -259,7 +270,34 @@ public class Xvfb extends SimpleBuildWrapper {
         }
     };
 
-    private static final Map<String, List<XvfbEnvironment>> zombies              = createOrLoadZombiesMap();
+    private static final Map<String, List<XvfbEnvironment>> zombies = createOrLoadZombiesMap();
+
+    @Extension
+    public static final ComputerListener nodeListener = new ComputerListener() {
+        @Override
+        public void preOnline(final Computer c, final Channel channel, final FilePath root, final TaskListener listener) throws IOException, InterruptedException {
+            final List<XvfbEnvironment> zombiesAtComputer = zombies.get(c.getName());
+
+            if (zombiesAtComputer == null) {
+                return;
+            }
+
+            final List<XvfbEnvironment> slained = new ArrayList<XvfbEnvironment>();
+            for (final XvfbEnvironment zombie : zombiesAtComputer) {
+                shutdownAndCleanupZombie(channel, zombie, listener);
+
+                slained.add(zombie);
+            }
+
+            zombiesAtComputer.removeAll(slained);
+        }
+
+    };
+
+    private static final int MILLIS_IN_SECOND = 1000;
+
+    /** default screen configuration for Xvfb, used by default, and if user left screen configuration blank */
+    static final String DEFAULT_SCREEN = "1024x768x24";
 
     private static ConcurrentHashMap<String, List<XvfbEnvironment>> createOrLoadZombiesMap() {
         Jenkins.XSTREAM.registerConverter(new XvfbEnvironmentConverter());
@@ -272,7 +310,7 @@ public class Xvfb extends SimpleBuildWrapper {
                 final ConcurrentHashMap<String, List<XvfbEnvironment>> oldZombies = (ConcurrentHashMap<String, List<XvfbEnvironment>>) fileOfZombies.read();
 
                 return oldZombies;
-            } catch (IOException ignore) {
+            } catch (final IOException ignore) {
             } finally {
                 fileOfZombies.delete();
             }
@@ -280,44 +318,6 @@ public class Xvfb extends SimpleBuildWrapper {
 
         return new ConcurrentHashMap<String, List<XvfbEnvironment>>();
     }
-
-    @Extension
-    public static final ComputerListener nodeListener = new ComputerListener() {
-                                                          @Override
-                                                          public void preOnline(final Computer c, final Channel channel, final FilePath root, final TaskListener listener) throws IOException,
-                                                                  InterruptedException {
-                                                              final List<XvfbEnvironment> zombiesAtComputer = zombies.get(c.getName());
-
-                                                              if (zombiesAtComputer == null) {
-                                                                  return;
-                                                              }
-
-                                                              final List<XvfbEnvironment> slained = new ArrayList<XvfbEnvironment>();
-                                                              for (final XvfbEnvironment zombie : zombiesAtComputer) {
-                                                                  shutdownAndCleanupZombie(channel, zombie, listener);
-
-                                                                  slained.add(zombie);
-                                                              }
-
-                                                              zombiesAtComputer.removeAll(slained);
-                                                          }
-
-                                                      };
-
-    private static final class ComputerNameComparator implements Comparator<Computer> {
-
-        private static final ComputerNameComparator INSTANCE = new ComputerNameComparator();
-
-        public int compare(Computer left, Computer right) {
-            return left.getName().compareTo(right.getName());
-        }
-
-    }
-
-    private static final int MILLIS_IN_SECOND = 1000;
-
-    /** default screen configuration for Xvfb, used by default, and if user left screen configuration blank */
-    static final String      DEFAULT_SCREEN   = "1024x768x24";
 
     static void shutdownAndCleanup(final XvfbEnvironment xvfbEnvironment, final Launcher launcher, final TaskListener listener) throws IOException, InterruptedException {
 
@@ -347,10 +347,6 @@ public class Xvfb extends SimpleBuildWrapper {
         }
     }
 
-    private static XmlFile zombiesFile() {
-        return new XmlFile(Jenkins.XSTREAM, new File(Jenkins.getInstance().getRootDir(), XvfbEnvironment.class.getName() + "-zombies.xml"));
-    }
-
     private static void shutdownAndCleanupZombie(final Channel channel, final XvfbEnvironment zombie, final TaskListener listener) throws IOException, InterruptedException {
 
         listener.getLogger().println(Messages.XvfbBuildWrapper_KillingZombies(zombie.displayName, zombie.frameBufferDir));
@@ -359,6 +355,7 @@ public class Xvfb extends SimpleBuildWrapper {
             channel.call(new MasterToSlaveCallable<Void, InterruptedException>() {
                 private static final long serialVersionUID = 1L;
 
+                @Override
                 public Void call() throws InterruptedException {
                     final ProcessTree processTree = ProcessTree.get();
 
@@ -383,43 +380,73 @@ public class Xvfb extends SimpleBuildWrapper {
             listener.getLogger().println(Messages.XvfbBuildWrapper_ZombieSlainFailed());
             e.printStackTrace(listener.getLogger());
         }
+    }
+
+    private static XmlFile zombiesFile() {
+        return new XmlFile(Jenkins.XSTREAM, new File(Jenkins.getInstance().getRootDir(), XvfbEnvironment.class.getName() + "-zombies.xml"));
     };
 
     /** Name of the installation used in a configured job. */
-    private String  installationName;
+    private String installationName;
 
     /** X11 DISPLAY name, if NULL chosen based on current executor number. */
     private Integer displayName;
 
     /** Xvfb screen argument, in the form WxHxD (width x height x pixel depth), i.e. 800x600x8. */
-    private String  screen            = DEFAULT_SCREEN;
+    private String screen = DEFAULT_SCREEN;
 
     /** Should the Xvfb output be displayed in job output. */
-    private boolean debug             = false;
+    private final boolean debug = false;
 
     /** Time in milliseconds to wait for Xvfb initialization, by default 0 -- do not wait. */
-    private long    timeout;
+    private long timeout;
 
     /** Offset for display names, default is 1. Display names are taken from build executor's number, i.e. if the build is performed by executor 4, and offset is 100, display name will be 104. */
-    private int     displayNameOffset = 1;
+    private int displayNameOffset = 1;
 
     /** Additional options to be passed to Xvfb */
-    private String  additionalOptions;
+    private String additionalOptions;
 
     /** Should the Xvfb display be around for post build actions, i.e. should it terminate with the whole build */
     private boolean shutdownWithBuild = false;
 
     /** Let Xvfb pick display number */
-    private boolean autoDisplayName   = false;
+    private boolean autoDisplayName = false;
 
     /** Run only on nodes labeled */
-    private String  assignedLabels;
+    private String assignedLabels;
 
     /** Run on same node in parallel */
-    private boolean parallelBuild     = false;
+    private boolean parallelBuild = false;
 
     @DataBoundConstructor
     public Xvfb() {
+    }
+
+    protected ArgumentListBuilder createCommandArguments(final XvfbInstallation installation, final FilePath frameBufferDir, final int displayNameUsed) {
+        final String path = installation.getHome();
+
+        final ArgumentListBuilder cmd;
+        if ("".equals(path)) {
+            cmd = new ArgumentListBuilder("Xvfb");
+        }
+        else {
+            cmd = new ArgumentListBuilder(path + "/Xvfb");
+        }
+
+        if (autoDisplayName) {
+            cmd.add("-displayfd", STDERR_FD);
+        }
+        else {
+            cmd.add(":" + displayNameUsed);
+        }
+
+        cmd.add("-screen").add("0").add(screen).add("-fbdir").add(frameBufferDir);
+
+        if (additionalOptions != null) {
+            cmd.addTokenized(additionalOptions);
+        }
+        return cmd;
     }
 
     public String getAdditionalOptions() {
@@ -579,39 +606,64 @@ public class Xvfb extends SimpleBuildWrapper {
         return xvfbEnvironment;
     }
 
-    protected ArgumentListBuilder createCommandArguments(final XvfbInstallation installation, final FilePath frameBufferDir, int displayNameUsed) {
-        final String path = installation.getHome();
+    @DataBoundSetter
+    public void setAdditionalOptions(final String additionalOptions) {
+        this.additionalOptions = additionalOptions;
+    }
 
-        final ArgumentListBuilder cmd;
-        if ("".equals(path)) {
-            cmd = new ArgumentListBuilder("Xvfb");
-        }
-        else {
-            cmd = new ArgumentListBuilder(path + "/Xvfb");
-        }
+    @DataBoundSetter
+    public void setAssignedLabels(final String assignedLabels) {
+        this.assignedLabels = assignedLabels;
+    }
 
-        if (autoDisplayName) {
-            cmd.add("-displayfd", STDERR_FD);
-        }
-        else {
-            cmd.add(":" + displayNameUsed);
-        }
+    @DataBoundSetter
+    public void setAutoDisplayName(final boolean autoDisplayName) {
+        this.autoDisplayName = autoDisplayName;
+    }
 
-        cmd.add("-screen").add("0").add(screen).add("-fbdir").add(frameBufferDir);
+    @DataBoundSetter
+    public void setDisplayName(final int displayName) {
+        this.displayName = displayName;
+    }
 
-        if (additionalOptions != null) {
-            cmd.addTokenized(additionalOptions);
-        }
-        return cmd;
+    @DataBoundSetter
+    public void setDisplayNameOffset(final int displayNameOffset) {
+        this.displayNameOffset = displayNameOffset;
+    }
+
+    @DataBoundSetter
+    public void setInstallationName(final String installationName) {
+        this.installationName = installationName;
+    }
+
+    @DataBoundSetter
+    public void setParallelBuild(final boolean parallelBuild) {
+        this.parallelBuild = parallelBuild;
+    }
+
+    @DataBoundSetter
+    public void setScreen(final String screen) {
+        this.screen = screen;
+    }
+
+    @DataBoundSetter
+    public void setShutdownWithBuild(final boolean shutdownWithBuild) {
+        this.shutdownWithBuild = shutdownWithBuild;
+    }
+
+    @DataBoundSetter
+    public void setTimeout(final long timeout) {
+        this.timeout = timeout;
     }
 
     @Override
-    public void setUp(Context context, Run<?, ?> run, FilePath workspace, Launcher launcher, TaskListener listener, EnvVars initialEnvironment) throws IOException, InterruptedException {
+    public void setUp(final Context context, final Run<?, ?> run, final FilePath workspace, final Launcher launcher, final TaskListener listener, final EnvVars initialEnvironment)
+            throws IOException, InterruptedException {
         if (assignedLabels != null && !assignedLabels.trim().isEmpty()) {
             final Label label;
             try {
                 label = Label.parseExpression(assignedLabels);
-            } catch (ANTLRException e) {
+            } catch (final ANTLRException e) {
                 throw new IOException(e);
             }
 
@@ -632,61 +684,11 @@ public class Xvfb extends SimpleBuildWrapper {
         }
 
         @SuppressWarnings("rawtypes")
-        final Run rawRun = (Run) run;
+        final Run rawRun = run;
         final XvfbEnvironment xvfbEnvironment = launchXvfb(rawRun, workspace, launcher, listener);
         run.addAction(xvfbEnvironment);
 
         context.env("DISPLAY", ":" + xvfbEnvironment.displayName);
         context.setDisposer(new XvfbDisposer(xvfbEnvironment));
-    }
-
-    @DataBoundSetter
-    public void setAdditionalOptions(String additionalOptions) {
-        this.additionalOptions = additionalOptions;
-    }
-
-    @DataBoundSetter
-    public void setAssignedLabels(String assignedLabels) {
-        this.assignedLabels = assignedLabels;
-    }
-
-    @DataBoundSetter
-    public void setAutoDisplayName(boolean autoDisplayName) {
-        this.autoDisplayName = autoDisplayName;
-    }
-
-    @DataBoundSetter
-    public void setDisplayName(int displayName) {
-        this.displayName = displayName;
-    }
-
-    @DataBoundSetter
-    public void setDisplayNameOffset(int displayNameOffset) {
-        this.displayNameOffset = displayNameOffset;
-    }
-
-    @DataBoundSetter
-    public void setInstallationName(final String installationName) {
-        this.installationName = installationName;
-    }
-
-    @DataBoundSetter
-    public void setParallelBuild(boolean parallelBuild) {
-        this.parallelBuild = parallelBuild;
-    }
-
-    @DataBoundSetter
-    public void setTimeout(long timeout) {
-        this.timeout = timeout;
-    }
-
-    @DataBoundSetter
-    public void setShutdownWithBuild(boolean shutdownWithBuild) {
-        this.shutdownWithBuild = shutdownWithBuild;
-    }
-    
-    @DataBoundSetter
-    public void setScreen(String screen) {
-        this.screen = screen;
     }
 }

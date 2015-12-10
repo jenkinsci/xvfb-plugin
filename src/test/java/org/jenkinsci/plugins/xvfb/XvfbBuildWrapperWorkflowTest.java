@@ -43,100 +43,96 @@ import org.jvnet.hudson.test.RestartableJenkinsRule;
 
 public class XvfbBuildWrapperWorkflowTest extends BaseXvfbTest {
 
-	@Rule
-	public RestartableJenkinsRule restartableSystem = new RestartableJenkinsRule();
+    @Rule
+    public RestartableJenkinsRule restartableSystem = new RestartableJenkinsRule();
 
-	@Rule
-	public TemporaryFolder tempDir = new TemporaryFolder();
+    @Rule
+    public TemporaryFolder tempDir = new TemporaryFolder();
 
-	@Test
-	public void configurationShouldRoundTrip() {
-		restartableSystem.addStep(new Statement() {
+    @Test
+    public void configurationShouldRoundTrip() {
+        restartableSystem.addStep(new Statement() {
 
-			@Override
-			public void evaluate() throws Throwable {
-				final Xvfb xvfb = new Xvfb();
+            @Override
+            public void evaluate() throws Throwable {
+                final Xvfb xvfb = new Xvfb();
 
-				final CoreWrapperStep wrapperStep = new CoreWrapperStep(xvfb);
+                final CoreWrapperStep wrapperStep = new CoreWrapperStep(xvfb);
 
-				final CoreWrapperStep testerStep = new StepConfigTester(restartableSystem.j)
-						.configRoundTrip(wrapperStep);
+                final CoreWrapperStep testerStep = new StepConfigTester(restartableSystem.j).configRoundTrip(wrapperStep);
 
-				restartableSystem.j.assertEqualDataBoundBeans(xvfb, testerStep.getDelegate());
-			}
-		});
-	}
+                restartableSystem.j.assertEqualDataBoundBeans(xvfb, testerStep.getDelegate());
+            }
+        });
+    }
 
-	@Test
-	public void shouldAllowWorkflowRestarts() {
-		restartableSystem.addStep(new Statement() {
+    @Test
+    public void shouldAllowWorkflowRestarts() {
+        restartableSystem.addStep(new Statement() {
 
-			@Override
-			public void evaluate() throws Throwable {
-				setupXvfbInstallations(restartableSystem.j.jenkins, tempDir);
+            @Override
+            public void evaluate() throws Throwable {
+                setupXvfbInstallations(restartableSystem.j.jenkins, tempDir);
 
-				final WorkflowJob workflowJob = restartableSystem.j.jenkins.createProject(WorkflowJob.class,
-						"shouldAllowWorkflowRestarts");
+                final WorkflowJob workflowJob = restartableSystem.j.jenkins.createProject(WorkflowJob.class, "shouldAllowWorkflowRestarts");
 
-				workflowJob.setDefinition(new CpsFlowDefinition(""//
-						+ "node {\n"//
-						+ "  wrap([$class: 'Xvfb', installationName: 'working']) {\n"//
-						+ "    semaphore 'shouldAllowWorkflowRestarts'\n"//
-						+ "    sh 'echo DISPLAY=$DISPLAY'\n"//
-						+ "  }\n"//
-						+ "}", true));
+                workflowJob.setDefinition(new CpsFlowDefinition(""//
+                        + "node {\n"//
+                        + "  wrap([$class: 'Xvfb', installationName: 'working']) {\n"//
+                        + "    semaphore 'shouldAllowWorkflowRestarts'\n"//
+                        + "    sh 'echo DISPLAY=$DISPLAY'\n"//
+                        + "  }\n"//
+                        + "}", true));
 
-				final WorkflowRun workflowRun = workflowJob.scheduleBuild2(0).waitForStart();
+                final WorkflowRun workflowRun = workflowJob.scheduleBuild2(0).waitForStart();
 
-				SemaphoreStep.waitForStart("shouldAllowWorkflowRestarts/1", workflowRun);
-			}
+                SemaphoreStep.waitForStart("shouldAllowWorkflowRestarts/1", workflowRun);
+            }
 
-		});
+        });
 
-		restartableSystem.addStep(new Statement() {
+        restartableSystem.addStep(new Statement() {
 
-			@Override
-			public void evaluate() throws Throwable {
-				SemaphoreStep.success("shouldAllowWorkflowRestarts/1", null);
+            @Override
+            public void evaluate() throws Throwable {
+                SemaphoreStep.success("shouldAllowWorkflowRestarts/1", null);
 
-				final WorkflowJob workflowProject = restartableSystem.j.jenkins.getItemByFullName(
-						"shouldAllowWorkflowRestarts", WorkflowJob.class);
+                final WorkflowJob workflowProject = restartableSystem.j.jenkins.getItemByFullName("shouldAllowWorkflowRestarts", WorkflowJob.class);
 
-				final WorkflowRun workflowRun = workflowProject.getBuildByNumber(1);
+                final WorkflowRun workflowRun = workflowProject.getBuildByNumber(1);
 
-				restartableSystem.j.assertBuildStatusSuccess(JenkinsRuleExt.waitForCompletion(workflowRun));
+                restartableSystem.j.assertBuildStatusSuccess(JenkinsRuleExt.waitForCompletion(workflowRun));
 
-				restartableSystem.j.assertLogContains("DISPLAY=:", workflowRun);
-			}
+                restartableSystem.j.assertLogContains("DISPLAY=:", workflowRun);
+            }
 
-		});
-	}
+        });
+    }
 
-	@Test
-	public void shouldSupportWorkflow() {
-		restartableSystem.addStep(new Statement() {
+    @Test
+    public void shouldSupportWorkflow() {
+        restartableSystem.addStep(new Statement() {
 
-			@Override
-			public void evaluate() throws Throwable {
-				setupXvfbInstallations(restartableSystem.j.jenkins, tempDir);
+            @Override
+            public void evaluate() throws Throwable {
+                setupXvfbInstallations(restartableSystem.j.jenkins, tempDir);
 
-				final WorkflowJob workflowJob = restartableSystem.j.jenkins.createProject(WorkflowJob.class,
-						"shouldSupportWorkflow");
+                final WorkflowJob workflowJob = restartableSystem.j.jenkins.createProject(WorkflowJob.class, "shouldSupportWorkflow");
 
-				workflowJob.setDefinition(new CpsFlowDefinition(""//
-						+ "node {\n"//
-						+ "  wrap([$class: 'Xvfb', installationName: 'working']) {\n"//
-						+ "    sh 'echo DISPLAY=$DISPLAY'\n"//
-						+ "  }\n"//
-						+ "}", true));
+                workflowJob.setDefinition(new CpsFlowDefinition(""//
+                        + "node {\n"//
+                        + "  wrap([$class: 'Xvfb', installationName: 'working']) {\n"//
+                        + "    sh 'echo DISPLAY=$DISPLAY'\n"//
+                        + "  }\n"//
+                        + "}", true));
 
-				final WorkflowRun workflowRun = workflowJob.scheduleBuild2(0).waitForStart();
+                final WorkflowRun workflowRun = workflowJob.scheduleBuild2(0).waitForStart();
 
-				restartableSystem.j.assertBuildStatusSuccess(JenkinsRuleExt.waitForCompletion(workflowRun));
+                restartableSystem.j.assertBuildStatusSuccess(JenkinsRuleExt.waitForCompletion(workflowRun));
 
-				restartableSystem.j.assertLogContains("DISPLAY=:", workflowRun);
-			}
+                restartableSystem.j.assertLogContains("DISPLAY=:", workflowRun);
+            }
 
-		});
-	}
+        });
+    }
 }

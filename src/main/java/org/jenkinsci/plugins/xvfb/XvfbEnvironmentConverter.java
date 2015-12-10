@@ -36,11 +36,11 @@ import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
 
 public class XvfbEnvironmentConverter implements Converter {
 
-    private static final String COOKIE                       = "cookie";
+    private static final String COOKIE = "cookie";
 
     private static final String REMOTE_FRAME_BUFFER_DIR_ATTR = "remoteFrameBufferDir";
 
-    private static final String DISPLAY_NAME_USED_ATTR       = "displayNameUsed";
+    private static final String DISPLAY_NAME_USED_ATTR = "displayNameUsed";
 
     @Override
     public boolean canConvert(@SuppressWarnings("rawtypes") final Class type) {

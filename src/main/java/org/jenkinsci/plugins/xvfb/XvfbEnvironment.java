@@ -28,25 +28,25 @@
  */
 package org.jenkinsci.plugins.xvfb;
 
-import hudson.model.InvisibleAction;
-
 import java.io.Serializable;
+
+import hudson.model.InvisibleAction;
 
 public class XvfbEnvironment extends InvisibleAction implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     /** Remote path of the frame buffer dir */
-    public final String       frameBufferDir;
+    public final String frameBufferDir;
 
     /** Actual display name used */
-    public final int          displayName;
+    public final int displayName;
 
     /** The shutdownWithBuild indicator from the job configuration. */
-    public final boolean      shutdownWithBuild;
+    public final boolean shutdownWithBuild;
 
     /** Random value identifying the Xvfb process. */
-    public String             cookie;
+    public String cookie;
 
     public XvfbEnvironment(final String cookie, final String frameBufferDir, final int displayName, final boolean shutdownWithBuild) {
         this.cookie = cookie;

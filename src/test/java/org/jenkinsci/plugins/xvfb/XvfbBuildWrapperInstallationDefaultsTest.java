@@ -71,6 +71,37 @@ public class XvfbBuildWrapperInstallationDefaultsTest extends BaseXvfbTest {
     }
 
     @Test
+    public void shouldUseTheDefaultInstallationInWorkflow() {
+        restartableSystem.addStep(new Statement() {
+
+            @Override
+            public void evaluate() throws Throwable {
+                final XvfbInstallation.DescriptorImpl installations = new XvfbInstallation.DescriptorImpl();
+
+                installations.setInstallations(createInstallation("default", tempDir), createInstallation("working", tempDir));
+
+                final DescriptorExtensionList<ToolInstallation, Descriptor<ToolInstallation>> toolInstallations = restartableSystem.j.jenkins.getDescriptorList(ToolInstallation.class);
+                toolInstallations.add(installations);
+
+                final WorkflowJob workflowJob = restartableSystem.j.jenkins.createProject(WorkflowJob.class, "shouldUseTheOnlyInstallationInWorkflow");
+
+                workflowJob.setDefinition(new CpsFlowDefinition(""//
+                        + "node {\n"//
+                        + "  wrap([$class: 'Xvfb']) {\n"//
+                        + "    sh 'echo DISPLAY=$DISPLAY'\n"//
+                        + "  }\n"//
+                        + "}", true));
+
+                final WorkflowRun workflowRun = workflowJob.scheduleBuild2(0).waitForStart();
+
+                restartableSystem.j.assertBuildStatusSuccess(JenkinsRuleExt.waitForCompletion(workflowRun));
+
+                restartableSystem.j.assertLogContains("DISPLAY=:", workflowRun);
+            }
+        });
+    }
+
+    @Test
     public void shouldUseTheOnlyInstalationIfNoExplicitNameSpecified() {
         restartableSystem.addStep(new Statement() {
 
@@ -99,37 +130,6 @@ public class XvfbBuildWrapperInstallationDefaultsTest extends BaseXvfbTest {
                 final XvfbInstallation.DescriptorImpl installations = new XvfbInstallation.DescriptorImpl();
 
                 installations.setInstallations(createInstallation("working", tempDir));
-
-                final DescriptorExtensionList<ToolInstallation, Descriptor<ToolInstallation>> toolInstallations = restartableSystem.j.jenkins.getDescriptorList(ToolInstallation.class);
-                toolInstallations.add(installations);
-
-                final WorkflowJob workflowJob = restartableSystem.j.jenkins.createProject(WorkflowJob.class, "shouldUseTheOnlyInstallationInWorkflow");
-
-                workflowJob.setDefinition(new CpsFlowDefinition(""//
-                        + "node {\n"//
-                        + "  wrap([$class: 'Xvfb']) {\n"//
-                        + "    sh 'echo DISPLAY=$DISPLAY'\n"//
-                        + "  }\n"//
-                        + "}", true));
-
-                final WorkflowRun workflowRun = workflowJob.scheduleBuild2(0).waitForStart();
-
-                restartableSystem.j.assertBuildStatusSuccess(JenkinsRuleExt.waitForCompletion(workflowRun));
-
-                restartableSystem.j.assertLogContains("DISPLAY=:", workflowRun);
-            }
-        });
-    }
-
-    @Test
-    public void shouldUseTheDefaultInstallationInWorkflow() {
-        restartableSystem.addStep(new Statement() {
-
-            @Override
-            public void evaluate() throws Throwable {
-                final XvfbInstallation.DescriptorImpl installations = new XvfbInstallation.DescriptorImpl();
-
-                installations.setInstallations(createInstallation("default", tempDir), createInstallation("working", tempDir));
 
                 final DescriptorExtensionList<ToolInstallation, Descriptor<ToolInstallation>> toolInstallations = restartableSystem.j.jenkins.getDescriptorList(ToolInstallation.class);
                 toolInstallations.add(installations);
