@@ -622,7 +622,7 @@ public class Xvfb extends SimpleBuildWrapper {
     }
 
     @DataBoundSetter
-    public void setDisplayName(final int displayName) {
+    public void setDisplayName(final Integer displayName) {
         this.displayName = displayName;
     }
 
