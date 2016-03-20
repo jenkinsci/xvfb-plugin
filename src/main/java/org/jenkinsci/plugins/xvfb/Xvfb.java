@@ -441,7 +441,11 @@ public class Xvfb extends SimpleBuildWrapper {
             cmd.add(":" + displayNameUsed);
         }
 
-        cmd.add("-screen").add("0").add(screen).add("-fbdir").add(frameBufferDir);
+        if (screen != null && !screen.trim().isEmpty()) {
+            cmd.add("-screen").add("0").add(screen);
+        }
+
+        cmd.add("-fbdir").add(frameBufferDir);
 
         if (additionalOptions != null) {
             cmd.addTokenized(additionalOptions);

@@ -220,6 +220,38 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
     }
 
     @Test
+    @Issue("JENKINS-32039")
+    public void shouldCreateCommandLineArgumentsWithoutScreenIfNotGiven() throws IOException {
+        final Xvfb xvfb = new Xvfb();
+        xvfb.setInstallationName("cmd");
+        xvfb.setDisplayName(42);
+        xvfb.setScreen(null);
+
+        final XvfbInstallation installation = new XvfbInstallation("cmd", "/usr/local/cmd-xvfb", null);
+
+        final File tempDirRoot = tempDir.getRoot();
+        final ArgumentListBuilder arguments = xvfb.createCommandArguments(installation, new FilePath(tempDirRoot), 42);
+
+        assertThat(arguments.toList(), contains("/usr/local/cmd-xvfb/Xvfb", ":42", "-fbdir", tempDirRoot.getAbsolutePath()));
+    }
+
+    @Test
+    @Issue("JENKINS-32039")
+    public void shouldCreateCommandLineArgumentsWithoutScreenIfEmpty() throws IOException {
+        final Xvfb xvfb = new Xvfb();
+        xvfb.setInstallationName("cmd");
+        xvfb.setDisplayName(42);
+        xvfb.setScreen("");
+
+        final XvfbInstallation installation = new XvfbInstallation("cmd", "/usr/local/cmd-xvfb", null);
+
+        final File tempDirRoot = tempDir.getRoot();
+        final ArgumentListBuilder arguments = xvfb.createCommandArguments(installation, new FilePath(tempDirRoot), 42);
+
+        assertThat(arguments.toList(), contains("/usr/local/cmd-xvfb/Xvfb", ":42", "-fbdir", tempDirRoot.getAbsolutePath()));
+    }
+
+    @Test
     public void shouldHonourSpecifiedDisplayNameOffset() throws Exception {
         final Xvfb xvfb = new Xvfb();
         xvfb.setInstallationName("working");
