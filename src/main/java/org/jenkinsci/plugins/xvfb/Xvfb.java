@@ -396,7 +396,7 @@ public class Xvfb extends SimpleBuildWrapper {
     private String screen = DEFAULT_SCREEN;
 
     /** Should the Xvfb output be displayed in job output. */
-    private final boolean debug = false;
+    private boolean debug = false;
 
     /** Time in milliseconds to wait for Xvfb initialization, by default 0 -- do not wait. */
     private long timeout;
@@ -623,6 +623,11 @@ public class Xvfb extends SimpleBuildWrapper {
     @DataBoundSetter
     public void setAutoDisplayName(final boolean autoDisplayName) {
         this.autoDisplayName = autoDisplayName;
+    }
+
+    @DataBoundSetter
+    public void setDebug(final boolean debug) {
+        this.debug = debug;
     }
 
     @DataBoundSetter
