@@ -565,7 +565,7 @@ public class Xvfb extends SimpleBuildWrapper {
         if (installation == null) {
             listener.error(Messages.XvfbBuildWrapper_NoInstallationsConfigured());
 
-            throw new InterruptedException();
+            throw new RunnerAbortedException();
         }
 
         final ArgumentListBuilder cmd = createCommandArguments(installation, frameBufferDir, displayNameUsed);

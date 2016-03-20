@@ -142,69 +142,6 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
         setupXvfbInstallations(system.jenkins, tempDir);
     }
 
-    @SuppressWarnings("unchecked")
-    @Test
-    public void shouldAbortIfInstallationIsNotFound() throws Exception {
-        final Xvfb xvfb = new Xvfb();
-        xvfb.setInstallationName("nonexistant");
-
-        final FreeStyleProject project = createFreeStyleJob(system, "shouldAbortIfInstallationIsNotFound");
-        setupXvfbOn(project, xvfb);
-
-        final QueueTaskFuture<FreeStyleBuild> buildResult = project.scheduleBuild2(0);
-
-        final FreeStyleBuild build = buildResult.get();
-
-        system.assertBuildStatus(Result.ABORTED, build);
-
-        final List<String> logLines = build.getLog(10);
-
-        assertThat("If no Xvfb installations defined for use log should note that", logLines, hasItems(containsString("No Xvfb installations defined, please define one in the configuration")));
-    }
-
-    @SuppressWarnings("unchecked")
-    @Test
-    public void shouldAbortIfNoInstallationIsDefined() throws Exception {
-        final Xvfb xvfb = new Xvfb();
-
-        final FreeStyleProject project = createFreeStyleJob(system, "shouldAbortIfNoInstallationIsDefined");
-        setupXvfbOn(project, xvfb);
-
-        final QueueTaskFuture<FreeStyleBuild> buildResult = project.scheduleBuild2(0);
-
-        final FreeStyleBuild build = buildResult.get();
-
-        system.assertBuildStatus(Result.ABORTED, build);
-
-        final List<String> logLines = build.getLog(10);
-
-        assertThat("If no Xvfb installations defined for use log should note that", logLines, hasItems(containsString("No Xvfb installations defined, please define one in the configuration")));
-    }
-
-    @SuppressWarnings("unchecked")
-    @Test
-    @Issue("JENKINS-18094")
-    public void shouldAbortIfXvfbFailsToStart() throws Exception {
-        final Xvfb xvfb = new Xvfb();
-        xvfb.setInstallationName("failing");
-        xvfb.setTimeout(10);
-
-        final FreeStyleProject project = createFreeStyleJob(system, "shouldAbortIfXvfbFailsToStart");
-        setupXvfbOn(project, xvfb);
-
-        final QueueTaskFuture<FreeStyleBuild> buildResult = project.scheduleBuild2(0);
-
-        final FreeStyleBuild build = buildResult.get();
-
-        system.assertBuildStatus(Result.FAILURE, build);
-
-        final List<String> logLines = build.getLog(10);
-
-        assertThat("If Xvfb fails to start log should indicate that", logLines,
-                hasItems(containsString("This Xvfb will fail"), containsString("Xvfb failed to start, consult the lines above for errors")));
-
-    }
-
     @Test
     public void shouldCreateCommandLineArguments() throws IOException {
         final Xvfb xvfb = new Xvfb();
@@ -217,6 +154,22 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
         final ArgumentListBuilder arguments = xvfb.createCommandArguments(installation, new FilePath(tempDirRoot), 42);
 
         assertThat(arguments.toList(), contains("/usr/local/cmd-xvfb/Xvfb", ":42", "-screen", "0", Xvfb.DEFAULT_SCREEN, "-fbdir", tempDirRoot.getAbsolutePath()));
+    }
+
+    @Test
+    @Issue("JENKINS-32039")
+    public void shouldCreateCommandLineArgumentsWithoutScreenIfEmpty() throws IOException {
+        final Xvfb xvfb = new Xvfb();
+        xvfb.setInstallationName("cmd");
+        xvfb.setDisplayName(42);
+        xvfb.setScreen("");
+
+        final XvfbInstallation installation = new XvfbInstallation("cmd", "/usr/local/cmd-xvfb", null);
+
+        final File tempDirRoot = tempDir.getRoot();
+        final ArgumentListBuilder arguments = xvfb.createCommandArguments(installation, new FilePath(tempDirRoot), 42);
+
+        assertThat(arguments.toList(), contains("/usr/local/cmd-xvfb/Xvfb", ":42", "-fbdir", tempDirRoot.getAbsolutePath()));
     }
 
     @Test
@@ -235,20 +188,67 @@ public class XvfbBuildWrapperTest extends BaseXvfbTest {
         assertThat(arguments.toList(), contains("/usr/local/cmd-xvfb/Xvfb", ":42", "-fbdir", tempDirRoot.getAbsolutePath()));
     }
 
+    @SuppressWarnings("unchecked")
     @Test
-    @Issue("JENKINS-32039")
-    public void shouldCreateCommandLineArgumentsWithoutScreenIfEmpty() throws IOException {
+    public void shouldFailIfInstallationIsNotFound() throws Exception {
         final Xvfb xvfb = new Xvfb();
-        xvfb.setInstallationName("cmd");
-        xvfb.setDisplayName(42);
-        xvfb.setScreen("");
+        xvfb.setInstallationName("nonexistant");
 
-        final XvfbInstallation installation = new XvfbInstallation("cmd", "/usr/local/cmd-xvfb", null);
+        final FreeStyleProject project = createFreeStyleJob(system, "shouldFailIfInstallationIsNotFound");
+        setupXvfbOn(project, xvfb);
 
-        final File tempDirRoot = tempDir.getRoot();
-        final ArgumentListBuilder arguments = xvfb.createCommandArguments(installation, new FilePath(tempDirRoot), 42);
+        final QueueTaskFuture<FreeStyleBuild> buildResult = project.scheduleBuild2(0);
 
-        assertThat(arguments.toList(), contains("/usr/local/cmd-xvfb/Xvfb", ":42", "-fbdir", tempDirRoot.getAbsolutePath()));
+        final FreeStyleBuild build = buildResult.get();
+
+        system.assertBuildStatus(Result.FAILURE, build);
+
+        final List<String> logLines = build.getLog(10);
+
+        assertThat("If no Xvfb installations defined for use log should note that", logLines, hasItems(containsString("No Xvfb installations defined, please define one in the configuration")));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    public void shouldFailIfNoInstallationIsDefined() throws Exception {
+        final Xvfb xvfb = new Xvfb();
+
+        final FreeStyleProject project = createFreeStyleJob(system, "shouldFailIfNoInstallationIsDefined");
+        setupXvfbOn(project, xvfb);
+
+        final QueueTaskFuture<FreeStyleBuild> buildResult = project.scheduleBuild2(0);
+
+        final FreeStyleBuild build = buildResult.get();
+
+        system.assertBuildStatus(Result.FAILURE, build);
+
+        final List<String> logLines = build.getLog(10);
+
+        assertThat("If no Xvfb installations defined for use log should note that", logLines, hasItems(containsString("No Xvfb installations defined, please define one in the configuration")));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    @Issue("JENKINS-18094")
+    public void shouldFailIfXvfbFailsToStart() throws Exception {
+        final Xvfb xvfb = new Xvfb();
+        xvfb.setInstallationName("failing");
+        xvfb.setTimeout(10);
+
+        final FreeStyleProject project = createFreeStyleJob(system, "shouldFailIfXvfbFailsToStart");
+        setupXvfbOn(project, xvfb);
+
+        final QueueTaskFuture<FreeStyleBuild> buildResult = project.scheduleBuild2(0);
+
+        final FreeStyleBuild build = buildResult.get();
+
+        system.assertBuildStatus(Result.FAILURE, build);
+
+        final List<String> logLines = build.getLog(10);
+
+        assertThat("If Xvfb fails to start log should indicate that", logLines,
+                hasItems(containsString("This Xvfb will fail"), containsString("Xvfb failed to start, consult the lines above for errors")));
+
     }
 
     @Test
