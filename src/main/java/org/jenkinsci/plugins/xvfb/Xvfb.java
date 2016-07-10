@@ -398,8 +398,8 @@ public class Xvfb extends SimpleBuildWrapper {
     /** Should the Xvfb output be displayed in job output. */
     private boolean debug = false;
 
-    /** Time in milliseconds to wait for Xvfb initialization, by default 0 -- do not wait. */
-    private long timeout;
+    /** Time in milliseconds to wait for Xvfb initialization, by default 1 second. */
+    private long timeout = 1;
 
     /** Offset for display names, default is 1. Display names are taken from build executor's number, i.e. if the build is performed by executor 4, and offset is 100, display name will be 104. */
     private int displayNameOffset = 1;
