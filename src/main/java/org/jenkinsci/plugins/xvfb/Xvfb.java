@@ -555,9 +555,12 @@ public class Xvfb extends SimpleBuildWrapper {
         }
 
         final Node currentNode = currentComputer.getNode();
-        final FilePath rootPath = currentNode.getRootPath();
 
-        final FilePath frameBufferDir = rootPath.createTempDir("xvfb-" + run.getId() + "-", ".fbdir");
+        if (!workspace.exists()) {
+            workspace.mkdirs();
+        }
+
+        final FilePath frameBufferDir = workspace.createTempDir(".xvfb-" + run.getId() + "-", ".fbdir");
 
         final EnvVars environment = currentComputer.getEnvironment();
         final XvfbInstallation installation = getInstallation(environment, currentNode, listener);
