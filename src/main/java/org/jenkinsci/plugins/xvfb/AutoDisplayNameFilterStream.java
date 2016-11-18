@@ -47,7 +47,7 @@ public class AutoDisplayNameFilterStream extends FilterOutputStream {
     private final long waitTime;
 
     protected AutoDisplayNameFilterStream(final OutputStream decorated) {
-        this(decorated, 10);
+        this(decorated, 30);
     }
 
     protected AutoDisplayNameFilterStream(final OutputStream decorated, final int waitTime) {
