@@ -32,6 +32,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
+import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
@@ -53,6 +54,7 @@ import net.sf.json.JSONObject;
 public class XvfbInstallation extends ToolInstallation implements NodeSpecific<XvfbInstallation>, EnvironmentSpecific<XvfbInstallation> {
 
     @Extension
+    @Symbol("xvfb")
     public static class DescriptorImpl extends ToolDescriptor<XvfbInstallation> {
 
         @Override
