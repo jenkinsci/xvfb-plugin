@@ -83,7 +83,7 @@ public class AutoDisplayNameFilterStream extends FilterOutputStream {
             if (idx != 0) {
                 final String line = new String(lastLine, 0, idx);
                 if (line.matches("\\d+")) {
-                    displayNumber = Integer.valueOf(line);
+                    displayNumber = Integer.parseInt(line);
                     received.release();
                 }
             }

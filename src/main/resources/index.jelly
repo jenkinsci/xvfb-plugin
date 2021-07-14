@@ -28,6 +28,7 @@
     either expressed or implied, of the FreeBSD Project.
 
 -->
+<?jelly escape-by-default='true'?>
 <div>
 	This plugin starts before build, and stops after the build the
 	<a href="http://www.x.org/archive/current/doc/man/man1/Xvfb.1.xhtml">Xvfb</a>

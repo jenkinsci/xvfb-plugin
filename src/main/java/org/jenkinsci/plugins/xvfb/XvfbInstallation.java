@@ -69,7 +69,7 @@ public class XvfbInstallation extends ToolInstallation implements NodeSpecific<X
         @Override
         public FormValidation doCheckHome(@QueryParameter final File value) {
             // this can be used to check the existence of a file on the server, so needs to be protected
-            if (!Jenkins.getInstance().hasPermission(Jenkins.ADMINISTER)) {
+            if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
                 return FormValidation.ok();
             }
 
@@ -106,7 +106,7 @@ public class XvfbInstallation extends ToolInstallation implements NodeSpecific<X
 
         @Override
         public XvfbInstallation[] getInstallations() {
-            return Jenkins.getInstance().getDescriptorByType(Xvfb.XvfbBuildWrapperDescriptor.class).getInstallations();
+            return Jenkins.get().getDescriptorByType(Xvfb.XvfbBuildWrapperDescriptor.class).getInstallations();
         }
 
         public DescriptorImpl getToolDescriptor() {
@@ -115,7 +115,7 @@ public class XvfbInstallation extends ToolInstallation implements NodeSpecific<X
 
         @Override
         public void setInstallations(final XvfbInstallation... installations) {
-            Jenkins.getInstance().getDescriptorByType(Xvfb.XvfbBuildWrapperDescriptor.class).setInstallations(installations);
+            Jenkins.get().getDescriptorByType(Xvfb.XvfbBuildWrapperDescriptor.class).setInstallations(installations);
         }
     }
 

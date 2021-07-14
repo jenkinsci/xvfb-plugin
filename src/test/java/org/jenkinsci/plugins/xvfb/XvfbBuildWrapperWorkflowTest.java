@@ -28,7 +28,6 @@
  */
 package org.jenkinsci.plugins.xvfb;
 
-import org.jenkinsci.plugins.workflow.JenkinsRuleExt;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
@@ -38,7 +37,7 @@ import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-import org.junit.runners.model.Statement;
+import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.RestartableJenkinsRule;
 
 public class XvfbBuildWrapperWorkflowTest extends BaseXvfbTest {
@@ -51,11 +50,13 @@ public class XvfbBuildWrapperWorkflowTest extends BaseXvfbTest {
 
     @Test
     public void configurationShouldRoundTrip() {
-        restartableSystem.addStep(new Statement() {
+        restartableSystem.then(new RestartableJenkinsRule.Step() {
 
             @Override
-            public void evaluate() throws Throwable {
+            public void run(final JenkinsRule rule) throws Throwable {
                 final Xvfb xvfb = new Xvfb();
+                xvfb.setAssignedLabels("");
+                xvfb.setAdditionalOptions("");
 
                 final CoreWrapperStep wrapperStep = new CoreWrapperStep(xvfb);
 
@@ -68,10 +69,10 @@ public class XvfbBuildWrapperWorkflowTest extends BaseXvfbTest {
 
     @Test
     public void shouldAllowWorkflowRestarts() {
-        restartableSystem.addStep(new Statement() {
+        restartableSystem.then(new RestartableJenkinsRule.Step() {
 
             @Override
-            public void evaluate() throws Throwable {
+            public void run(final JenkinsRule rule) throws Throwable {
                 setupXvfbInstallations(restartableSystem.j.jenkins, tempDir);
 
                 final WorkflowJob workflowJob = restartableSystem.j.jenkins.createProject(WorkflowJob.class, "shouldAllowWorkflowRestarts");
@@ -91,17 +92,17 @@ public class XvfbBuildWrapperWorkflowTest extends BaseXvfbTest {
 
         });
 
-        restartableSystem.addStep(new Statement() {
+        restartableSystem.then(new RestartableJenkinsRule.Step() {
 
             @Override
-            public void evaluate() throws Throwable {
+            public void run(final JenkinsRule rule) throws Throwable {
                 SemaphoreStep.success("shouldAllowWorkflowRestarts/1", null);
 
                 final WorkflowJob workflowProject = restartableSystem.j.jenkins.getItemByFullName("shouldAllowWorkflowRestarts", WorkflowJob.class);
 
                 final WorkflowRun workflowRun = workflowProject.getBuildByNumber(1);
 
-                restartableSystem.j.assertBuildStatusSuccess(JenkinsRuleExt.waitForCompletion(workflowRun));
+                restartableSystem.j.assertBuildStatusSuccess(restartableSystem.j.waitForCompletion(workflowRun));
 
                 restartableSystem.j.assertLogContains("DISPLAY=:", workflowRun);
             }
@@ -111,10 +112,10 @@ public class XvfbBuildWrapperWorkflowTest extends BaseXvfbTest {
 
     @Test
     public void shouldSupportWorkflow() {
-        restartableSystem.addStep(new Statement() {
+        restartableSystem.then(new RestartableJenkinsRule.Step() {
 
             @Override
-            public void evaluate() throws Throwable {
+            public void run(final JenkinsRule rule) throws Throwable {
                 setupXvfbInstallations(restartableSystem.j.jenkins, tempDir);
 
                 final WorkflowJob workflowJob = restartableSystem.j.jenkins.createProject(WorkflowJob.class, "shouldSupportWorkflow");
@@ -128,7 +129,7 @@ public class XvfbBuildWrapperWorkflowTest extends BaseXvfbTest {
 
                 final WorkflowRun workflowRun = workflowJob.scheduleBuild2(0).waitForStart();
 
-                restartableSystem.j.assertBuildStatusSuccess(JenkinsRuleExt.waitForCompletion(workflowRun));
+                restartableSystem.j.assertBuildStatusSuccess(restartableSystem.j.waitForCompletion(workflowRun));
 
                 restartableSystem.j.assertLogContains("DISPLAY=:", workflowRun);
             }

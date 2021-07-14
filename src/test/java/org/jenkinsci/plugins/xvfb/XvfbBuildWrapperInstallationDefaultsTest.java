@@ -28,14 +28,13 @@
  */
 package org.jenkinsci.plugins.xvfb;
 
-import org.jenkinsci.plugins.workflow.JenkinsRuleExt;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-import org.junit.runners.model.Statement;
+import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.RestartableJenkinsRule;
 
 import hudson.DescriptorExtensionList;
@@ -52,10 +51,10 @@ public class XvfbBuildWrapperInstallationDefaultsTest extends BaseXvfbTest {
 
     @Test
     public void shouldUseTheDefaultInstalationIfNoExplicitNameSpecified() {
-        restartableSystem.addStep(new Statement() {
+        restartableSystem.then(new RestartableJenkinsRule.Step() {
 
             @Override
-            public void evaluate() throws Throwable {
+            public void run(final JenkinsRule rule) throws Throwable {
                 final XvfbInstallation.DescriptorImpl installations = new XvfbInstallation.DescriptorImpl();
 
                 installations.setInstallations(createInstallation("default", tempDir), createInstallation("failing", tempDir));
@@ -72,10 +71,10 @@ public class XvfbBuildWrapperInstallationDefaultsTest extends BaseXvfbTest {
 
     @Test
     public void shouldUseTheDefaultInstallationInWorkflow() {
-        restartableSystem.addStep(new Statement() {
+        restartableSystem.then(new RestartableJenkinsRule.Step() {
 
             @Override
-            public void evaluate() throws Throwable {
+            public void run(final JenkinsRule rule) throws Throwable {
                 final XvfbInstallation.DescriptorImpl installations = new XvfbInstallation.DescriptorImpl();
 
                 installations.setInstallations(createInstallation("default", tempDir), createInstallation("working", tempDir));
@@ -94,7 +93,7 @@ public class XvfbBuildWrapperInstallationDefaultsTest extends BaseXvfbTest {
 
                 final WorkflowRun workflowRun = workflowJob.scheduleBuild2(0).waitForStart();
 
-                restartableSystem.j.assertBuildStatusSuccess(JenkinsRuleExt.waitForCompletion(workflowRun));
+                restartableSystem.j.assertBuildStatusSuccess(restartableSystem.j.waitForCompletion(workflowRun));
 
                 restartableSystem.j.assertLogContains("DISPLAY=:", workflowRun);
             }
@@ -103,10 +102,10 @@ public class XvfbBuildWrapperInstallationDefaultsTest extends BaseXvfbTest {
 
     @Test
     public void shouldUseTheOnlyInstalationIfNoExplicitNameSpecified() {
-        restartableSystem.addStep(new Statement() {
+        restartableSystem.then(new RestartableJenkinsRule.Step() {
 
             @Override
-            public void evaluate() throws Throwable {
+            public void run(final JenkinsRule rule) throws Throwable {
                 final XvfbInstallation.DescriptorImpl installations = new XvfbInstallation.DescriptorImpl();
 
                 installations.setInstallations(createInstallation("working", tempDir));
@@ -123,10 +122,10 @@ public class XvfbBuildWrapperInstallationDefaultsTest extends BaseXvfbTest {
 
     @Test
     public void shouldUseTheOnlyInstallationInWorkflow() {
-        restartableSystem.addStep(new Statement() {
+        restartableSystem.then(new RestartableJenkinsRule.Step() {
 
             @Override
-            public void evaluate() throws Throwable {
+            public void run(final JenkinsRule rule) throws Throwable {
                 final XvfbInstallation.DescriptorImpl installations = new XvfbInstallation.DescriptorImpl();
 
                 installations.setInstallations(createInstallation("working", tempDir));
@@ -145,7 +144,7 @@ public class XvfbBuildWrapperInstallationDefaultsTest extends BaseXvfbTest {
 
                 final WorkflowRun workflowRun = workflowJob.scheduleBuild2(0).waitForStart();
 
-                restartableSystem.j.assertBuildStatusSuccess(JenkinsRuleExt.waitForCompletion(workflowRun));
+                restartableSystem.j.assertBuildStatusSuccess(restartableSystem.j.waitForCompletion(workflowRun));
 
                 restartableSystem.j.assertLogContains("DISPLAY=:", workflowRun);
             }

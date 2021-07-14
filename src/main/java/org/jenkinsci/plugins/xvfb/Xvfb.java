@@ -134,7 +134,7 @@ public class Xvfb extends SimpleBuildWrapper {
         /** adopted from @see hudson.model.AbstractProject.AbstractProjectDescriptor#doAutoCompleteAssignedLabels */
         public AutoCompletionCandidates doAutoCompleteAssignedLabels(@AncestorInPath final AbstractProject<?, ?> project, @QueryParameter final String value) {
             final AutoCompletionCandidates candidates = new AutoCompletionCandidates();
-            final Set<Label> labels = Jenkins.getInstance().getLabels();
+            final Set<Label> labels = Jenkins.get().getLabels();
 
             for (final Label label : labels) {
                 if (value == null || label.getName().startsWith(value)) {
@@ -157,7 +157,7 @@ public class Xvfb extends SimpleBuildWrapper {
                 return FormValidation.error(e, Messages.XvfbBuildWrapper_AssignedLabelString_InvalidBooleanExpression(e.getMessage()));
             }
 
-            final Jenkins jenkins = Jenkins.getInstance();
+            final Jenkins jenkins = Jenkins.get();
             final Label label = jenkins.getLabel(value);
 
             if (label.isEmpty()) {
@@ -187,11 +187,14 @@ public class Xvfb extends SimpleBuildWrapper {
 
         @Override
         protected XmlFile getConfigFile() {
-            final File rootDir = Jenkins.getInstance().getRootDir();
+            final File rootDir = Jenkins.get().getRootDir();
 
             final File legacyConfiguration = new File(rootDir, "org.jenkinsci.plugins.xvfb.XvfbBuildWrapper.xml");
             if (legacyConfiguration.exists()) {
-                legacyConfiguration.renameTo(new File(rootDir, getId() + ".xml"));
+                final File newConfigurationFile = new File(rootDir, getId() + ".xml");
+                if (!legacyConfiguration.renameTo(newConfigurationFile)) {
+                    throw new IllegalStateException("Unable to rename legacy configuration file at " + legacyConfiguration + " to " + newConfigurationFile);
+                }
             }
 
             return super.getConfigFile();
@@ -203,7 +206,7 @@ public class Xvfb extends SimpleBuildWrapper {
         }
 
         public XvfbInstallation[] getInstallations() {
-            return installations;
+            return installations.clone();
         }
 
         public XvfbInstallation.DescriptorImpl getToolDescriptor() {
@@ -221,7 +224,11 @@ public class Xvfb extends SimpleBuildWrapper {
         }
 
         public void setInstallations(final XvfbInstallation... installations) {
-            this.installations = installations;
+            if (installations == null) {
+                this.installations = new XvfbInstallation[0];
+            } else {
+                this.installations = installations;
+            }
             save();
         }
 
@@ -253,19 +260,31 @@ public class Xvfb extends SimpleBuildWrapper {
         public void onCompleted(final Run r, final TaskListener listener) {
             final XvfbEnvironment xvfbEnvironment = r.getAction(XvfbEnvironment.class);
 
-            if (xvfbEnvironment != null && xvfbEnvironment.shutdownWithBuild) {
-                try {
-                    final Executor executor = r.getExecutor();
-                    final Computer computer = executor.getOwner();
-                    final Node node = computer.getNode();
-                    final Launcher launcher = node.createLauncher(listener);
+            if (xvfbEnvironment == null || !xvfbEnvironment.shutdownWithBuild) {
+                return;
+            }
 
-                    Xvfb.shutdownAndCleanup(xvfbEnvironment, launcher, listener);
-                } catch (final IOException e) {
-                    throw new RuntimeException(e);
-                } catch (final InterruptedException e) {
-                    throw new RuntimeException(e);
+            try {
+                final Executor executor = r.getExecutor();
+                if (executor == null) {
+                    // not much we can do, but let's not fail the build if we can't cleanup
+                    return;
                 }
+
+                final Computer computer = executor.getOwner();
+                final Node node = computer.getNode();
+                if (node == null) {
+                    // not much we can do, but let's not fail the build if we can't cleanup
+                    return;
+                }
+
+                final Launcher launcher = node.createLauncher(listener);
+
+                Xvfb.shutdownAndCleanup(xvfbEnvironment, launcher, listener);
+            } catch (final IOException e) {
+                throw new RuntimeException(e);
+            } catch (final InterruptedException e) {
+                throw new RuntimeException(e);
             }
         }
     };
@@ -368,7 +387,10 @@ public class Xvfb extends SimpleBuildWrapper {
 
                         if (processCookie != null && processCookie.equals(zombie.cookie)) {
                             osProcess.kill();
-                            new File(zombie.frameBufferDir).delete();
+                            final File zombieDir = new File(zombie.frameBufferDir);
+                            if (!zombieDir.delete()) {
+                                zombieDir.deleteOnExit();
+                            }
                         }
                     }
 
@@ -383,7 +405,7 @@ public class Xvfb extends SimpleBuildWrapper {
     }
 
     private static XmlFile zombiesFile() {
-        return new XmlFile(Jenkins.XSTREAM, new File(Jenkins.getInstance().getRootDir(), XvfbEnvironment.class.getName() + "-zombies.xml"));
+        return new XmlFile(Jenkins.XSTREAM, new File(Jenkins.get().getRootDir(), XvfbEnvironment.class.getName() + "-zombies.xml"));
     };
 
     /** Name of the installation used in a configured job. */
@@ -530,31 +552,16 @@ public class Xvfb extends SimpleBuildWrapper {
 
     private XvfbEnvironment launchXvfb(final Run<?, ?> run, final FilePath workspace, final Launcher launcher, final TaskListener listener) throws IOException, InterruptedException {
         final Computer currentComputer = workspace.toComputer();
-
-        int displayNameUsed;
-
-        if (displayName == null) {
-            if (!autoDisplayName) {
-                final Executor executor = run.getExecutor();
-                if (parallelBuild) {
-                    final Computer[] computers = Jenkins.getInstance().getComputers();
-                    final int nodeIndex = Arrays.binarySearch(computers, currentComputer, ComputerNameComparator.INSTANCE);
-
-                    displayNameUsed = nodeIndex * 100 + executor.getNumber() + displayNameOffset;
-                }
-                else {
-                    displayNameUsed = executor.getNumber() + displayNameOffset;
-                }
-            }
-            else {
-                displayNameUsed = -1;
-            }
+        if (currentComputer == null) {
+        	throw new IllegalStateException("Unable to access workspace on a node running the build, cannot continue.");
         }
-        else {
-            displayNameUsed = displayName;
-        }
+
+        int displayNameUsed = determineDisplayName(run, currentComputer);
 
         final Node currentNode = currentComputer.getNode();
+        if (currentNode == null) {
+        	throw new IllegalStateException("Node is being removed, cannot continue");
+        }
 
         if (!workspace.exists()) {
             workspace.mkdirs();
@@ -612,6 +619,34 @@ public class Xvfb extends SimpleBuildWrapper {
 
         return xvfbEnvironment;
     }
+
+	private int determineDisplayName(final Run<?, ?> run, final Computer currentComputer) {
+		if (displayName != null) {
+			return displayName;
+		}
+
+        if (autoDisplayName) {
+        	return -1;
+        }
+
+        final Executor executor = run.getExecutor();
+
+        if (executor == null) {
+        	throw new IllegalStateException("Invoked outside of build: executor of the run is null");
+        }
+
+        final int executorNumber= executor.getNumber();
+
+        if (parallelBuild) {
+            final Computer[] computers = Jenkins.get().getComputers();
+            final int nodeIndex = Arrays.binarySearch(computers, currentComputer, ComputerNameComparator.INSTANCE);
+
+            return nodeIndex * 100 + executorNumber + displayNameOffset;
+        }
+        else {
+            return executorNumber + displayNameOffset;
+        }
+	}
 
     @DataBoundSetter
     public void setAdditionalOptions(final String additionalOptions) {
