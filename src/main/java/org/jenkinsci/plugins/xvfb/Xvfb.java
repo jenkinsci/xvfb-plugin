@@ -327,11 +327,10 @@ public class Xvfb extends SimpleBuildWrapper {
             try {
                 @SuppressWarnings("unchecked")
                 final ConcurrentHashMap<String, List<XvfbEnvironment>> oldZombies = (ConcurrentHashMap<String, List<XvfbEnvironment>>) fileOfZombies.read();
-
+                fileOfZombies.delete();
                 return oldZombies;
             } catch (final IOException ignore) {
-            } finally {
-                fileOfZombies.delete();
+                // ignore
             }
         }
 
