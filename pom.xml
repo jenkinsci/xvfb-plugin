@@ -41,7 +41,7 @@
     <version>1.3-SNAPSHOT</version>
     <packaging>hpi</packaging>
     <name>Jenkins Xvfb plugin</name>
-    <description>Starts and stopps Xvfb with the build</description>
+    <description>Starts and stops Xvfb with the build</description>
     <url>http://wiki.jenkins-ci.org/display/JENKINS/Xvfb+Plugin</url>
     <inceptionYear>2012</inceptionYear>
 
